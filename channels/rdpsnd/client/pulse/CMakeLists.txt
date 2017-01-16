@@ -23,17 +23,18 @@ set(${MODULE_PREFIX}_SRCS
 include_directories(..)
 include_directories(${PULSE_INCLUDE_DIR})
 
-add_library(${MODULE_NAME} ${${MODULE_PREFIX}_SRCS})
+add_channel_client_subsystem_library(${MODULE_PREFIX} ${MODULE_NAME} ${CHANNEL_NAME} "" TRUE "")
 
-set_target_properties(${MODULE_NAME} PROPERTIES PREFIX "")
 
-set_complex_link_libraries(VARIABLE ${MODULE_PREFIX}_LIBS
-	MONOLITHIC ${MONOLITHIC_BUILD}
-	MODULE freerdp
-	MODULES freerdp-utils)
 
-set(${MODULE_PREFIX}_LIBS ${${MODULE_PREFIX}_LIBS} ${PULSE_LIBRARY})
+list(APPEND ${MODULE_PREFIX}_LIBS ${PULSE_LIBRARY})
+list(APPEND ${MODULE_PREFIX}_LIBS freerdp)
+list(APPEND ${MODULE_PREFIX}_LIBS winpr)
+
+if(GSM_FOUND)
+	list(APPEND ${MODULE_PREFIX}_LIBS ${GSM_LIBRARIES})
+endif()
 
 target_link_libraries(${MODULE_NAME} ${${MODULE_PREFIX}_LIBS})
 
-install(TARGETS ${MODULE_NAME} DESTINATION ${FREERDP_PLUGIN_PATH})
+set_property(TARGET ${MODULE_NAME} PROPERTY FOLDER "Channels/${CHANNEL_NAME}/Client/Pulse")

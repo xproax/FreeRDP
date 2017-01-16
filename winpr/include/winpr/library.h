@@ -23,7 +23,7 @@
 #include <winpr/winpr.h>
 #include <winpr/wtypes.h>
 
-#ifndef _WIN32
+#if !defined(_WIN32) || defined(_UWP)
 
 typedef HANDLE DLL_DIRECTORY_COOKIE;
 
@@ -31,6 +31,10 @@ typedef HANDLE DLL_DIRECTORY_COOKIE;
 #define LOAD_LIBRARY_SEARCH_DEFAULT_DIRS			0x00001000
 #define LOAD_LIBRARY_SEARCH_SYSTEM32				0x00000800
 #define LOAD_LIBRARY_SEARCH_USER_DIRS				0x00000400
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 WINPR_API DLL_DIRECTORY_COOKIE AddDllDirectory(PCWSTR NewDirectory);
 WINPR_API BOOL RemoveDllDirectory(DLL_DIRECTORY_COOKIE Cookie);
@@ -42,17 +46,47 @@ WINPR_API HMODULE LoadLibraryW(LPCWSTR lpLibFileName);
 WINPR_API HMODULE LoadLibraryExA(LPCSTR lpLibFileName, HANDLE hFile, DWORD dwFlags);
 WINPR_API HMODULE LoadLibraryExW(LPCWSTR lpLibFileName, HANDLE hFile, DWORD dwFlags);
 
-#ifdef UNICODE
-#define LoadLibrary	LoadLibraryW
-#define LoadLibraryEx	LoadLibraryExW
-#else
-#define LoadLibrary	LoadLibraryA
-#define LoadLibraryEx	LoadLibraryExA
+#ifdef __cplusplus
+}
 #endif
+
+#ifdef UNICODE
+#define LoadLibrary		LoadLibraryW
+#define LoadLibraryEx		LoadLibraryExW
+#else
+#define LoadLibrary		LoadLibraryA
+#define LoadLibraryEx		LoadLibraryExA
+#endif
+
+#endif
+
+#ifndef _WIN32
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+WINPR_API HMODULE GetModuleHandleA(LPCSTR lpModuleName);
+WINPR_API HMODULE GetModuleHandleW(LPCWSTR lpModuleName);
+
+WINPR_API DWORD GetModuleFileNameA(HMODULE hModule, LPSTR lpFilename, DWORD nSize);
+WINPR_API DWORD GetModuleFileNameW(HMODULE hModule, LPWSTR lpFilename, DWORD nSize);
 
 WINPR_API FARPROC GetProcAddress(HMODULE hModule, LPCSTR lpProcName);
 
 WINPR_API BOOL FreeLibrary(HMODULE hLibModule);
+
+#ifdef __cplusplus
+}
+#endif
+
+#ifdef UNICODE
+#define GetModuleHandle		GetModuleHandleW
+#define GetModuleFileName	GetModuleFileNameW
+#else
+#define GetModuleHandle		GetModuleHandleA
+#define GetModuleFileName	GetModuleFileNameA
+#endif
 
 #endif
 

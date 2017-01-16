@@ -3,6 +3,7 @@
  * Handle Management
  *
  * Copyright 2012 Marc-Andre Moreau <marcandre.moreau@gmail.com>
+ * Copyright 2014 DI (FH) Martin Haimberger <martin.haimberger@thincast.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,88 +26,47 @@
 
 #ifndef _WIN32
 
+#include <assert.h>
+#include <pthread.h>
+
 #include "../synch/synch.h"
+#include "../thread/thread.h"
+#include "../pipe/pipe.h"
+#include "../comm/comm.h"
+#include "../security/security.h"
 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
 
+#include <assert.h>
+
+#include "../handle/handle.h"
+
 BOOL CloseHandle(HANDLE hObject)
 {
 	ULONG Type;
-	PVOID Object;
+	WINPR_HANDLE *Object;
 
 	if (!winpr_Handle_GetInfo(hObject, &Type, &Object))
 		return FALSE;
 
-	if (Type == HANDLE_TYPE_THREAD)
-	{
-		return TRUE;
-	}
-	else if (Type == HANDLE_TYPE_MUTEX)
-	{
-		pthread_mutex_destroy((pthread_mutex_t*) Object);
-		winpr_Handle_Remove(Object);
-		free(Object);
+	if (!Object)
+		return FALSE;
 
-		return TRUE;
-	}
-	else if (Type == HANDLE_TYPE_EVENT)
-	{
-		WINPR_EVENT* event;
+	if (!Object->ops)
+		return FALSE;
 
-		event = (WINPR_EVENT*) Object;
-
-		if (event->pipe_fd[0] != -1)
-		{
-			close(event->pipe_fd[0]);
-			event->pipe_fd[0] = -1;
-		}
-		if (event->pipe_fd[1] != -1)
-		{
-			close(event->pipe_fd[1]);
-			event->pipe_fd[1] = -1;
-		}
-
-		winpr_Handle_Remove(Object);
-		free(event);
-
-		return TRUE;
-	}
-	else if (Type == HANDLE_TYPE_SEMAPHORE)
-	{
-#if defined __APPLE__
-		semaphore_destroy(mach_task_self(), *((winpr_sem_t*) Object));
-#else
-		sem_destroy((winpr_sem_t*) Object);
-#endif
-		winpr_Handle_Remove(Object);
-		free(Object);
-
-		return TRUE;
-	}
-	else if (Type == HANDLE_TYPE_ANONYMOUS_PIPE)
-	{
-		int pipe_fd;
-
-		pipe_fd = (int) ((ULONG_PTR) Object);
-
-		if (pipe_fd != -1)
-		{
-			close(pipe_fd);
-		}
-
-		winpr_Handle_Remove(Object);
-
-		return TRUE;
-	}
+	if (Object->ops->CloseHandle)
+		return Object->ops->CloseHandle(hObject);
 
 	return FALSE;
 }
 
 BOOL DuplicateHandle(HANDLE hSourceProcessHandle, HANDLE hSourceHandle, HANDLE hTargetProcessHandle,
-	LPHANDLE lpTargetHandle, DWORD dwDesiredAccess, BOOL bInheritHandle, DWORD dwOptions)
+		LPHANDLE lpTargetHandle, DWORD dwDesiredAccess, BOOL bInheritHandle, DWORD dwOptions)
 {
+	*((ULONG_PTR*) lpTargetHandle) = (ULONG_PTR) hSourceHandle;
 	return TRUE;
 }
 

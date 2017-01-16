@@ -17,10 +17,11 @@
  * limitations under the License.
  */
 
-#ifndef __UPDATE_SECONDARY_H
-#define __UPDATE_SECONDARY_H
+#ifndef FREERDP_UPDATE_SECONDARY_H
+#define FREERDP_UPDATE_SECONDARY_H
 
 #include <freerdp/types.h>
+#include <freerdp/primary.h>
 
 #define GLYPH_FRAGMENT_NOP			0x00
 #define GLYPH_FRAGMENT_USE			0xFE
@@ -127,49 +128,25 @@ struct _CACHE_COLOR_TABLE_ORDER
 {
 	UINT32 cacheIndex;
 	UINT32 numberColors;
-	UINT32* colorTable;
+	UINT32 colorTable[256];
 };
 typedef struct _CACHE_COLOR_TABLE_ORDER CACHE_COLOR_TABLE_ORDER;
-
-struct _GLYPH_DATA
-{
-	UINT32 cacheIndex;
-	INT32 x;
-	INT32 y;
-	UINT32 cx;
-	UINT32 cy;
-	UINT32 cb;
-	BYTE* aj;
-};
-typedef struct _GLYPH_DATA GLYPH_DATA;
 
 struct _CACHE_GLYPH_ORDER
 {
 	UINT32 cacheId;
 	UINT32 cGlyphs;
-	GLYPH_DATA* glyphData[255];
+	GLYPH_DATA glyphData[256];
 	BYTE* unicodeCharacters;
 };
 typedef struct _CACHE_GLYPH_ORDER CACHE_GLYPH_ORDER;
-
-struct _GLYPH_DATA_V2
-{
-	UINT32 cacheIndex;
-	INT32 x;
-	INT32 y;
-	UINT32 cx;
-	UINT32 cy;
-	UINT32 cb;
-	BYTE* aj;
-};
-typedef struct _GLYPH_DATA_V2 GLYPH_DATA_V2;
 
 struct _CACHE_GLYPH_V2_ORDER
 {
 	UINT32 cacheId;
 	UINT32 flags;
 	UINT32 cGlyphs;
-	GLYPH_DATA_V2* glyphData[255];
+	GLYPH_DATA_V2 glyphData[256];
 	BYTE* unicodeCharacters;
 };
 typedef struct _CACHE_GLYPH_V2_ORDER CACHE_GLYPH_V2_ORDER;
@@ -182,17 +159,24 @@ struct _CACHE_BRUSH_ORDER
 	UINT32 cy;
 	UINT32 style;
 	UINT32 length;
-	BYTE* data;
+	BYTE data[256];
 };
 typedef struct _CACHE_BRUSH_ORDER CACHE_BRUSH_ORDER;
 
-typedef void (*pCacheBitmap)(rdpContext* context, CACHE_BITMAP_ORDER* cache_bitmap_order);
-typedef void (*pCacheBitmapV2)(rdpContext* context, CACHE_BITMAP_V2_ORDER* cache_bitmap_v2_order);
-typedef void (*pCacheBitmapV3)(rdpContext* context, CACHE_BITMAP_V3_ORDER* cache_bitmap_v3_order);
-typedef void (*pCacheColorTable)(rdpContext* context, CACHE_COLOR_TABLE_ORDER* cache_color_table_order);
-typedef void (*pCacheGlyph)(rdpContext* context, CACHE_GLYPH_ORDER* cache_glyph_order);
-typedef void (*pCacheGlyphV2)(rdpContext* context, CACHE_GLYPH_V2_ORDER* cache_glyph_v2_order);
-typedef void (*pCacheBrush)(rdpContext* context, CACHE_BRUSH_ORDER* cache_brush_order);
+typedef BOOL (*pCacheBitmap)(rdpContext* context,
+			     const CACHE_BITMAP_ORDER* cache_bitmap_order);
+typedef BOOL (*pCacheBitmapV2)(rdpContext* context,
+			       CACHE_BITMAP_V2_ORDER* cache_bitmap_v2_order);
+typedef BOOL (*pCacheBitmapV3)(rdpContext* context,
+			       CACHE_BITMAP_V3_ORDER* cache_bitmap_v3_order);
+typedef BOOL (*pCacheColorTable)(rdpContext* context,
+				 const CACHE_COLOR_TABLE_ORDER* cache_color_table_order);
+typedef BOOL (*pCacheGlyph)(rdpContext* context,
+			    const CACHE_GLYPH_ORDER* cache_glyph_order);
+typedef BOOL (*pCacheGlyphV2)(rdpContext* context,
+			      const CACHE_GLYPH_V2_ORDER* cache_glyph_v2_order);
+typedef BOOL (*pCacheBrush)(rdpContext* context,
+			    const CACHE_BRUSH_ORDER* cache_brush_order);
 
 struct rdp_secondary_update
 {
@@ -221,4 +205,4 @@ struct rdp_secondary_update
 };
 typedef struct rdp_secondary_update rdpSecondaryUpdate;
 
-#endif /* __UPDATE_SECONDARY_H */
+#endif /* FREERDP_UPDATE_SECONDARY_H */

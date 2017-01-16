@@ -21,23 +21,56 @@
 #include "config.h"
 #endif
 
-#include <winpr/synch.h>
+#include <winpr/windows.h>
 
-/**
- * Sleep
- * SleepEx
- */
+#include <winpr/synch.h>
 
 #ifndef _WIN32
 
+#include <time.h>
+
+#ifdef HAVE_UNISTD_H
+	#ifndef _XOPEN_SOURCE
+		#define _XOPEN_SOURCE 500
+	#endif
+#include <unistd.h>
+#endif
+
 VOID Sleep(DWORD dwMilliseconds)
 {
-
+	usleep(dwMilliseconds * 1000);
 }
 
 DWORD SleepEx(DWORD dwMilliseconds, BOOL bAlertable)
 {
+	usleep(dwMilliseconds * 1000);
 	return TRUE;
 }
 
 #endif
+
+VOID USleep(DWORD dwMicroseconds)
+{
+#ifndef _WIN32
+	usleep(dwMicroseconds);
+#else
+	static LARGE_INTEGER freq = { 0, 0 };
+	LARGE_INTEGER t1 = { 0, 0 };
+	LARGE_INTEGER t2 = { 0, 0 };
+
+	QueryPerformanceCounter(&t1);
+
+	if (freq.QuadPart == 0) {
+		QueryPerformanceFrequency(&freq);
+	}
+
+	// in order to save cpu cyles we use Sleep() for the large share ...
+	if (dwMicroseconds >= 1000) {
+		Sleep(dwMicroseconds/1000);
+	}
+	// ... and busy loop until all the requested micro seconds have passed
+	do {
+		QueryPerformanceCounter(&t2);
+	} while (((t2.QuadPart - t1.QuadPart)*1000000)/freq.QuadPart < dwMicroseconds);
+#endif
+}

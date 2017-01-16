@@ -24,34 +24,39 @@
 #include "config.h"
 #endif
 
-#include <freerdp/utils/debug.h>
+#include <winpr/crt.h>
+#include <winpr/pool.h>
+#include <winpr/wlog.h>
+#include <winpr/collections.h>
+
+#include <freerdp/log.h>
 #include <freerdp/utils/profiler.h>
 
+#define RFX_TAG FREERDP_TAG("codec.rfx")
 #ifdef WITH_DEBUG_RFX
-#define DEBUG_RFX(fmt, ...) DEBUG_CLASS(RFX, fmt, ## __VA_ARGS__)
+#define DEBUG_RFX(...) WLog_DBG(RFX_TAG, __VA_ARGS__)
 #else
-#define DEBUG_RFX(fmt, ...) DEBUG_NULL(fmt, ## __VA_ARGS__)
+#define DEBUG_RFX(...) do { } while (0)
 #endif
 
-#include "rfx_pool.h"
+typedef struct _RFX_TILE_COMPOSE_WORK_PARAM RFX_TILE_COMPOSE_WORK_PARAM;
 
 struct _RFX_CONTEXT_PRIV
 {
-	/* pre-allocated buffers */
+	wLog* log;
+	wObjectPool* TilePool;
 
-	RFX_POOL* pool; /* memory pool */
+	BOOL UseThreads;
+	PTP_WORK* workObjects;
+	RFX_TILE_COMPOSE_WORK_PARAM* tileWorkParams;
 
-	INT16 y_r_mem[4096 + 8]; /* 4096 = 64x64 (+ 8x2 = 16 for mem align) */
-	INT16 cb_g_mem[4096 + 8]; /* 4096 = 64x64 (+ 8x2 = 16 for mem align) */
-	INT16 cr_b_mem[4096 + 8]; /* 4096 = 64x64 (+ 8x2 = 16 for mem align) */
- 
- 	INT16* y_r_buffer;
-	INT16* cb_g_buffer;
-	INT16* cr_b_buffer;
- 
-	INT16 dwt_mem[32 * 32 * 2 * 2 + 8]; /* maximum sub-band width is 32 */
+	DWORD MinThreadCount;
+	DWORD MaxThreadCount;
 
-	INT16* dwt_buffer;
+	PTP_POOL ThreadPool;
+	TP_CALLBACK_ENVIRON ThreadPoolEnv;
+
+	wBufferPool* BufferPool;
 
 	/* profilers */
 	PROFILER_DEFINE(prof_rfx_decode_rgb);
@@ -60,7 +65,7 @@ struct _RFX_CONTEXT_PRIV
 	PROFILER_DEFINE(prof_rfx_differential_decode);
 	PROFILER_DEFINE(prof_rfx_quantization_decode);
 	PROFILER_DEFINE(prof_rfx_dwt_2d_decode);
-	PROFILER_DEFINE(prof_rfx_decode_ycbcr_to_rgb);
+	PROFILER_DEFINE(prof_rfx_ycbcr_to_rgb);
 	PROFILER_DEFINE(prof_rfx_decode_format_rgb);
 
 	PROFILER_DEFINE(prof_rfx_encode_rgb);
@@ -69,7 +74,7 @@ struct _RFX_CONTEXT_PRIV
 	PROFILER_DEFINE(prof_rfx_differential_encode);
 	PROFILER_DEFINE(prof_rfx_quantization_encode);
 	PROFILER_DEFINE(prof_rfx_dwt_2d_encode);
-	PROFILER_DEFINE(prof_rfx_encode_rgb_to_ycbcr);
+	PROFILER_DEFINE(prof_rfx_rgb_to_ycbcr);
 	PROFILER_DEFINE(prof_rfx_encode_format_rgb);
 };
 

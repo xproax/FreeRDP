@@ -3,6 +3,8 @@
  * FreeRDP Sample Server (Audio Output)
  *
  * Copyright 2012 Marc-Andre Moreau <marcandre.moreau@gmail.com>
+ * Copyright 2015 Thincast Technologies GmbH
+ * Copyright 2015 DI (FH) Martin Haimberger <martin.haimberger@thincast.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,30 +25,27 @@
 
 #include <freerdp/server/audin.h>
 
+
 #include "sf_rdpsnd.h"
 
-static const rdpsndFormat test_audio_formats[] =
+#include <freerdp/log.h>
+#define TAG SERVER_TAG("sample")
+
+static const AUDIO_FORMAT test_audio_formats[] =
 {
-	{ 0x11, 2, 22050, 1024, 4, 0, NULL }, /* IMA ADPCM, 22050 Hz, 2 channels */
-	{ 0x11, 1, 22050, 512, 4, 0, NULL }, /* IMA ADPCM, 22050 Hz, 1 channels */
-	{ 0x01, 2, 22050, 4, 16, 0, NULL }, /* PCM, 22050 Hz, 2 channels, 16 bits */
-	{ 0x01, 1, 22050, 2, 16, 0, NULL }, /* PCM, 22050 Hz, 1 channels, 16 bits */
-	{ 0x01, 2, 44100, 4, 16, 0, NULL }, /* PCM, 44100 Hz, 2 channels, 16 bits */
-	{ 0x01, 1, 44100, 2, 16, 0, NULL }, /* PCM, 44100 Hz, 1 channels, 16 bits */
-	{ 0x01, 2, 11025, 4, 16, 0, NULL }, /* PCM, 11025 Hz, 2 channels, 16 bits */
-	{ 0x01, 1, 11025, 2, 16, 0, NULL }, /* PCM, 11025 Hz, 1 channels, 16 bits */
-	{ 0x01, 2, 8000, 4, 16, 0, NULL }, /* PCM, 8000 Hz, 2 channels, 16 bits */
-	{ 0x01, 1, 8000, 2, 16, 0, NULL } /* PCM, 8000 Hz, 1 channels, 16 bits */
+	{ WAVE_FORMAT_PCM, 2, 44100, 176400, 4, 16, 0, NULL },
+	{ WAVE_FORMAT_ALAW, 2, 22050, 44100, 2, 8, 0, NULL }
 };
 
-static void sf_peer_rdpsnd_activated(rdpsnd_server_context* context)
+static void sf_peer_rdpsnd_activated(RdpsndServerContext* context)
 {
-	printf("RDPSND Activated\n");
+	WLog_DBG(TAG, "RDPSND Activated");
 }
 
 BOOL sf_peer_rdpsnd_init(testPeerContext* context)
 {
 	context->rdpsnd = rdpsnd_server_context_new(context->vcm);
+	context->rdpsnd->rdpcontext = &context->_p;
 	context->rdpsnd->data = context;
 
 	context->rdpsnd->server_formats = test_audio_formats;
@@ -60,7 +59,10 @@ BOOL sf_peer_rdpsnd_init(testPeerContext* context)
 
 	context->rdpsnd->Activated = sf_peer_rdpsnd_activated;
 
-	context->rdpsnd->Initialize(context->rdpsnd);
+	if (context->rdpsnd->Initialize(context->rdpsnd, TRUE) != CHANNEL_RC_OK)
+	{
+		return FALSE;
+	}
 
 	return TRUE;
 }

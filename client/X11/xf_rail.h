@@ -20,14 +20,20 @@
 #ifndef __XF_RAIL_H
 #define __XF_RAIL_H
 
+#include "xf_client.h"
 #include "xfreerdp.h"
 
-void xf_rail_paint(xfInfo* xfi, rdpRail* rail, INT32 uleft, INT32 utop, UINT32 uright, UINT32 ubottom);
-void xf_rail_register_callbacks(xfInfo* xfi, rdpRail* rail);
-void xf_rail_send_client_system_command(xfInfo* xfi, UINT32 windowId, UINT16 command);
-void xf_rail_send_activate(xfInfo* xfi, Window xwindow, BOOL enabled);
-void xf_process_rail_event(xfInfo* xfi, rdpChannels* chanman, RDP_EVENT* event);
-void xf_rail_adjust_position(xfInfo* xfi, rdpWindow *window);
-void xf_rail_end_local_move(xfInfo* xfi, rdpWindow *window);
+#include <freerdp/client/rail.h>
+
+void xf_rail_paint(xfContext* xfc, INT32 uleft, INT32 utop, UINT32 uright, UINT32 ubottom);
+void xf_rail_send_client_system_command(xfContext* xfc, UINT32 windowId, UINT16 command);
+void xf_rail_send_activate(xfContext* xfc, Window xwindow, BOOL enabled);
+void xf_rail_adjust_position(xfContext* xfc, xfAppWindow* appWindow);
+void xf_rail_end_local_move(xfContext* xfc, xfAppWindow* appWindow);
+void xf_rail_enable_remoteapp_mode(xfContext* xfc);
+void xf_rail_disable_remoteapp_mode(xfContext* xfc);
+
+int xf_rail_init(xfContext* xfc, RailClientContext* rail);
+int xf_rail_uninit(xfContext* xfc, RailClientContext* rail);
 
 #endif /* __XF_RAIL_H */

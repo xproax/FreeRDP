@@ -18,12 +18,13 @@
  * limitations under the License.
  */
 
-#ifndef __MSCONFIG_H
-#define __MSCONFIG_H
+#ifndef FREERDP_UTILS_MSCONFIG_H
+#define FREERDP_UTILS_MSCONFIG_H
 
+#include <freerdp/api.h>
 #include <freerdp/types.h>
-#include <freerdp/utils/memory.h>
-#include <freerdp/utils/stream.h>
+
+#include <winpr/stream.h>
 
 /* a safer free helper */
 #define zfree(p) do { if (p != NULL) {free(p); p = NULL;} } while (0)
@@ -119,19 +120,27 @@ struct _MSUSB_CONFIG_DESCRIPTOR
 	int MsOutSize;
 } __attribute__((packed));
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* MSUSB_PIPE exported functions */
-void msusb_mspipes_replace(MSUSB_INTERFACE_DESCRIPTOR* MsInterface, MSUSB_PIPE_DESCRIPTOR** NewMsPipes, UINT32 NewNumberOfPipes);
+FREERDP_API void msusb_mspipes_replace(MSUSB_INTERFACE_DESCRIPTOR* MsInterface, MSUSB_PIPE_DESCRIPTOR** NewMsPipes, UINT32 NewNumberOfPipes);
 
 /* MSUSB_INTERFACE exported functions */
-void msusb_msinterface_replace(MSUSB_CONFIG_DESCRIPTOR* MsConfig, BYTE InterfaceNumber, MSUSB_INTERFACE_DESCRIPTOR* NewMsInterface);
-MSUSB_INTERFACE_DESCRIPTOR* msusb_msinterface_read(BYTE* data, UINT32 data_size, int* offset);
-int msusb_msinterface_write(MSUSB_INTERFACE_DESCRIPTOR* MsInterface, BYTE* data, int* offset);
+FREERDP_API void msusb_msinterface_replace(MSUSB_CONFIG_DESCRIPTOR* MsConfig, BYTE InterfaceNumber, MSUSB_INTERFACE_DESCRIPTOR* NewMsInterface);
+FREERDP_API MSUSB_INTERFACE_DESCRIPTOR* msusb_msinterface_read(BYTE* data, UINT32 data_size, int* offset);
+FREERDP_API int msusb_msinterface_write(MSUSB_INTERFACE_DESCRIPTOR* MsInterface, BYTE* data, int* offset);
 
 /* MSUSB_CONFIG exported functions */
-MSUSB_CONFIG_DESCRIPTOR* msusb_msconfig_new();
-void msusb_msconfig_free(MSUSB_CONFIG_DESCRIPTOR* MsConfig);
-MSUSB_CONFIG_DESCRIPTOR* msusb_msconfig_read(BYTE* data, UINT32 data_size, UINT32 NumInterfaces);
-int msusb_msconfig_write(MSUSB_CONFIG_DESCRIPTOR* MsConfg, BYTE* data, int * offset);
-void msusb_msconfig_dump(MSUSB_CONFIG_DESCRIPTOR* MsConfg);
+FREERDP_API MSUSB_CONFIG_DESCRIPTOR* msusb_msconfig_new(void);
+FREERDP_API void msusb_msconfig_free(MSUSB_CONFIG_DESCRIPTOR* MsConfig);
+FREERDP_API MSUSB_CONFIG_DESCRIPTOR* msusb_msconfig_read(BYTE* data, UINT32 data_size, UINT32 NumInterfaces);
+FREERDP_API int msusb_msconfig_write(MSUSB_CONFIG_DESCRIPTOR* MsConfg, BYTE* data, int * offset);
+FREERDP_API void msusb_msconfig_dump(MSUSB_CONFIG_DESCRIPTOR* MsConfg);
 
+#ifdef __cplusplus
+}
 #endif
+
+#endif /* FREERDP_UTILS_MSCONFIG_H */

@@ -24,10 +24,20 @@ int TestFileFindNextFile(int argc, char* argv[])
 #ifdef UNICODE
 	length = MultiByteToWideChar(CP_UTF8, 0, str, strlen(str), NULL, 0);
 	BasePath = (WCHAR*) malloc((length + 1) * sizeof(WCHAR));
+	if (!BasePath)
+	{
+		_tprintf(_T("Unable to allocate memory"));
+		return -1;
+	}
 	MultiByteToWideChar(CP_UTF8, 0, str, length, (LPWSTR) BasePath, length * sizeof(WCHAR));
 	BasePath[length] = 0;
 #else
 	BasePath = _strdup(str);
+	if (!BasePath)
+	{
+		printf("Unable to allocate memory");
+		return -1;
+	}
 	length = strlen(BasePath);
 #endif
 
@@ -52,9 +62,13 @@ int TestFileFindNextFile(int argc, char* argv[])
 
 	_tprintf(_T("FindFirstFile: %s"), FindData.cFileName);
 
-	if (_tcscmp(FindData.cFileName, testDirectory2File1) != 0)
+	/**
+	 * The current implementation does not enforce a particular order
+	 */
+
+	if ((_tcscmp(FindData.cFileName, testDirectory2File1) != 0) && (_tcscmp(FindData.cFileName, testDirectory2File2) != 0))
 	{
-		_tprintf(_T("FindFirstFile failure: Expected: %d, Actual: %s\n"),
+		_tprintf(_T("FindFirstFile failure: Expected: %s, Actual: %s\n"),
 				testDirectory2File1, FindData.cFileName);
 		return -1;
 	}
@@ -63,13 +77,13 @@ int TestFileFindNextFile(int argc, char* argv[])
 
 	if (!status)
 	{
-		_tprintf(_T("FindNextFile failure: Expected: TRUE, Actual: %d\n"), status);
+		_tprintf(_T("FindNextFile failure: Expected: TRUE, Actual: %")_T(PRId32)_T("\n"), status);
 		return -1;
 	}
 
-	if (_tcscmp(FindData.cFileName, testDirectory2File2) != 0)
+	if ((_tcscmp(FindData.cFileName, testDirectory2File1) != 0) && (_tcscmp(FindData.cFileName, testDirectory2File2) != 0))
 	{
-		_tprintf(_T("FindNextFile failure: Expected: %d, Actual: %s\n"),
+		_tprintf(_T("FindNextFile failure: Expected: %s, Actual: %s\n"),
 				testDirectory2File2, FindData.cFileName);
 		return -1;
 	}
@@ -78,7 +92,7 @@ int TestFileFindNextFile(int argc, char* argv[])
 
 	if (status)
 	{
-		_tprintf(_T("FindNextFile failure: Expected: FALSE, Actual: %d\n"), status);
+		_tprintf(_T("FindNextFile failure: Expected: FALSE, Actual: %")_T(PRId32)_T("\n"), status);
 		return -1;
 	}
 

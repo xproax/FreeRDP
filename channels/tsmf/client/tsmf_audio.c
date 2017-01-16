@@ -25,49 +25,43 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <freerdp/utils/memory.h>
-#include <freerdp/utils/load_plugin.h>
-
 #include "tsmf_audio.h"
 
 static ITSMFAudioDevice* tsmf_load_audio_device_by_name(const char* name, const char* device)
 {
 	ITSMFAudioDevice* audio;
 	TSMF_AUDIO_DEVICE_ENTRY entry;
-	char* fullname;
 
-	if (strrchr(name, '.') != NULL)
-		entry = (TSMF_AUDIO_DEVICE_ENTRY) freerdp_load_plugin(name, TSMF_AUDIO_DEVICE_EXPORT_FUNC_NAME);
-	else
-	{
-		fullname = xzalloc(strlen(name) + 6);
-		strcpy(fullname, "tsmf_");
-		strcat(fullname, name);
-		entry = (TSMF_AUDIO_DEVICE_ENTRY) freerdp_load_plugin(fullname, TSMF_AUDIO_DEVICE_EXPORT_FUNC_NAME);
-		free(fullname);
-	}
-	if (entry == NULL)
-	{
+	entry = (TSMF_AUDIO_DEVICE_ENTRY) freerdp_load_channel_addin_entry("tsmf", (LPSTR) name, "audio", 0);
+
+	if (!entry)
 		return NULL;
-	}
 
 	audio = entry();
-	if (audio == NULL)
+
+	if (!audio)
 	{
-		DEBUG_WARN("failed to call export function in %s", name);
+		WLog_ERR(TAG, "failed to call export function in %s", name);
 		return NULL;
 	}
+
 	if (!audio->Open(audio, device))
 	{
 		audio->Free(audio);
 		audio = NULL;
+		WLog_ERR(TAG, "failed to open, name: %s, device: %s", name, device);
 	}
+	else
+	{
+		WLog_DBG(TAG, "name: %s, device: %s", name, device);
+	}
+
 	return audio;
 }
 
 ITSMFAudioDevice* tsmf_load_audio_device(const char* name, const char* device)
 {
-	ITSMFAudioDevice* audio;
+	ITSMFAudioDevice* audio = NULL;
 
 	if (name)
 	{
@@ -75,9 +69,29 @@ ITSMFAudioDevice* tsmf_load_audio_device(const char* name, const char* device)
 	}
 	else
 	{
-		audio = tsmf_load_audio_device_by_name("pulse", device);
+#if defined(WITH_PULSE)
+		if (!audio)
+			audio = tsmf_load_audio_device_by_name("pulse", device);
+#endif
+
+#if defined(WITH_OSS)
+		if (!audio)
+			audio = tsmf_load_audio_device_by_name("oss", device);
+#endif
+
+#if defined(WITH_ALSA)
 		if (!audio)
 			audio = tsmf_load_audio_device_by_name("alsa", device);
+#endif
+	}
+	
+	if (audio == NULL)
+	{
+		WLog_ERR(TAG, "no sound device.");
+	}
+	else
+	{
+		WLog_DBG(TAG, "name: %s, device: %s", name, device);
 	}
 
 	return audio;

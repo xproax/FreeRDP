@@ -3,6 +3,8 @@
  * Server Audio Input Virtual Channel
  *
  * Copyright 2012 Vic Lee
+ * Copyright 2015 Thincast Technologies GmbH
+ * Copyright 2015 DI (FH) Martin Haimberger <martin.haimberger@thincast.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,41 +19,42 @@
  * limitations under the License.
  */
 
-#ifndef __SERVER_AUDIN_H
-#define __SERVER_AUDIN_H
+#ifndef FREERDP_CHANNEL_AUDIN_SERVER_H
+#define FREERDP_CHANNEL_AUDIN_SERVER_H
 
+#include <freerdp/codec/audio.h>
 #include <freerdp/channels/wtsvc.h>
 #include <freerdp/channels/rdpsnd.h>
 
 typedef struct _audin_server_context audin_server_context;
 
-typedef void (*psAudinServerSelectFormat)(audin_server_context* context, int client_format_index);
+typedef UINT (*psAudinServerSelectFormat)(audin_server_context* context, int client_format_index);
 typedef BOOL (*psAudinServerOpen)(audin_server_context* context);
 typedef BOOL (*psAudinServerClose)(audin_server_context* context);
 
-typedef void (*psAudinServerOpening)(audin_server_context* context);
-typedef void (*psAudinServerOpenResult)(audin_server_context* context, UINT32 result);
-typedef void (*psAudinServerReceiveSamples)(audin_server_context* context, const void* buf, int nframes);
+typedef UINT (*psAudinServerOpening)(audin_server_context* context);
+typedef UINT (*psAudinServerOpenResult)(audin_server_context* context, UINT32 result);
+typedef UINT (*psAudinServerReceiveSamples)(audin_server_context* context, const void* buf, int nframes);
 
 struct _audin_server_context
 {
-	WTSVirtualChannelManager* vcm;
+	HANDLE vcm;
 
 	/* Server self-defined pointer. */
 	void* data;
 
 	/* Server supported formats. Set by server. */
-	const rdpsndFormat* server_formats;
+	const AUDIO_FORMAT* server_formats;
 	int num_server_formats;
 
 	/* Server destination PCM audio format. Set by server. */
-	rdpsndFormat dst_format;
+	AUDIO_FORMAT dst_format;
 
 	/* Server preferred frames per packet. */
 	int frames_per_packet;
 
 	/* Client supported formats. */
-	rdpsndFormat* client_formats;
+	AUDIO_FORMAT* client_formats;
 	int num_client_formats;
 	int selected_client_format;
 
@@ -87,9 +90,19 @@ struct _audin_server_context
 	 * server must be careful of thread synchronization.
 	 */
 	psAudinServerReceiveSamples ReceiveSamples;
+
+	rdpContext* rdpcontext;
 };
 
-FREERDP_API audin_server_context* audin_server_context_new(WTSVirtualChannelManager* vcm);
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+FREERDP_API audin_server_context* audin_server_context_new(HANDLE vcm);
 FREERDP_API void audin_server_context_free(audin_server_context* context);
 
+#ifdef __cplusplus
+}
 #endif
+
+#endif /* FREERDP_CHANNEL_AUDIN_SERVER_H */

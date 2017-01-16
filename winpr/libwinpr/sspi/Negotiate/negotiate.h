@@ -40,12 +40,16 @@ struct _NEGOTIATE_CONTEXT
 	NEGOTIATE_STATE state;
 	UINT32 NegotiateFlags;
 	PCtxtHandle auth_ctx;
-	SEC_WINNT_AUTH_IDENTITY identity;
 	SecBuffer NegoInitMessage;
+
+	CtxtHandle SubContext;
+
+	SecurityFunctionTableA* sspiA;
+	SecurityFunctionTableW* sspiW;
 };
 typedef struct _NEGOTIATE_CONTEXT NEGOTIATE_CONTEXT;
 
-NEGOTIATE_CONTEXT* negotiate_ContextNew();
+NEGOTIATE_CONTEXT* negotiate_ContextNew(void);
 void negotiate_ContextFree(NEGOTIATE_CONTEXT* context);
 
 #endif /* WINPR_SSPI_NEGOTIATE_PRIVATE_H */

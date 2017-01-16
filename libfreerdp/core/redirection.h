@@ -20,57 +20,49 @@
 #ifndef __REDIRECTION_H
 #define __REDIRECTION_H
 
+typedef struct rdp_redirection rdpRedirection;
+
 #include "rdp.h"
 
 #include <freerdp/freerdp.h>
-#include <freerdp/utils/debug.h>
-#include <freerdp/utils/stream.h>
-#include <freerdp/utils/string.h>
+#include <freerdp/log.h>
+#include <freerdp/api.h>
 
-/* Redirection Flags */
-#define LB_TARGET_NET_ADDRESS		0x00000001
-#define LB_LOAD_BALANCE_INFO		0x00000002
-#define LB_USERNAME			0x00000004
-#define LB_DOMAIN			0x00000008
-#define LB_PASSWORD			0x00000010
-#define LB_DONTSTOREUSERNAME		0x00000020
-#define LB_SMARTCARD_LOGON		0x00000040
-#define LB_NOREDIRECT			0x00000080
-#define LB_TARGET_FQDN			0x00000100
-#define LB_TARGET_NETBIOS_NAME		0x00000200
-#define LB_TARGET_NET_ADDRESSES		0x00000800
-#define LB_CLIENT_TSV_URL		0x00001000
-#define LB_SERVER_TSV_CAPABLE		0x00002000
+#include <winpr/wlog.h>
+#include <winpr/stream.h>
 
 struct rdp_redirection
 {
 	UINT32 flags;
 	UINT32 sessionID;
-	rdpString tsvUrl;
-	rdpString username;
-	rdpString domain;
-	BYTE* PasswordCookie;
-	DWORD PasswordCookieLength;
-	rdpString targetFQDN;
+	BYTE* TsvUrl;
+	DWORD TsvUrlLength;
+	char* Username;
+	char* Domain;
+	BYTE* Password;
+	DWORD PasswordLength;
+	char* TargetFQDN;
 	BYTE* LoadBalanceInfo;
 	DWORD LoadBalanceInfoLength;
-	rdpString targetNetBiosName;
-	rdpString targetNetAddress;
-	UINT32 targetNetAddressesCount;
-	rdpString* targetNetAddresses;
+	char* TargetNetBiosName;
+	char* TargetNetAddress;
+	UINT32 TargetNetAddressesCount;
+	char** TargetNetAddresses;
 };
-typedef struct rdp_redirection rdpRedirection;
 
-BOOL rdp_recv_redirection_packet(rdpRdp* rdp, STREAM* s);
-BOOL rdp_recv_enhanced_security_redirection_packet(rdpRdp* rdp, STREAM* s);
+FREERDP_LOCAL int rdp_recv_enhanced_security_redirection_packet(rdpRdp* rdp,
+        wStream* s);
 
-rdpRedirection* redirection_new();
-void redirection_free(rdpRedirection* redirection);
+FREERDP_LOCAL int rdp_redirection_apply_settings(rdpRdp* rdp);
 
+FREERDP_LOCAL rdpRedirection* redirection_new(void);
+FREERDP_LOCAL void redirection_free(rdpRedirection* redirection);
+
+#define REDIR_TAG FREERDP_TAG("core.redirection")
 #ifdef WITH_DEBUG_REDIR
-#define DEBUG_REDIR(fmt, ...) DEBUG_CLASS(REDIR, fmt, ## __VA_ARGS__)
+#define DEBUG_REDIR(...) WLog_DBG(REDIR_TAG, __VA_ARGS__)
 #else
-#define DEBUG_REDIR(fmt, ...) DEBUG_NULL(fmt, ## __VA_ARGS__)
+#define DEBUG_REDIR(...) do { } while (0)
 #endif
 
 #endif /* __REDIRECTION_H */

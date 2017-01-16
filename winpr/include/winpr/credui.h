@@ -23,10 +23,16 @@
 #include <winpr/winpr.h>
 #include <winpr/wtypes.h>
 
+#include <winpr/nt.h>
 #include <winpr/sspi.h>
+#include <winpr/error.h>
 #include <winpr/credentials.h>
 
-#ifndef _WIN32
+#ifdef _WIN32
+
+#include <wincred.h>
+
+#else
 
 #define CREDUI_MAX_MESSAGE_LENGTH			32767
 #define CREDUI_MAX_CAPTION_LENGTH			128
@@ -62,9 +68,6 @@
 #define CREDUIWIN_SECURE_PROMPT				0x00001000
 #define CREDUIWIN_PACK_32_WOW				0x10000000
 
-typedef HANDLE HWND;
-typedef HANDLE HBITMAP;
-
 typedef struct _CREDUI_INFOA
 {
 	DWORD cbSize;
@@ -89,6 +92,10 @@ typedef struct _CREDUI_INFOW
 #else
 #define CREDUI_INFO	CREDUI_INFOA
 #define PCREDUI_INFO	PCREDUI_INFOA
+#endif
+
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 WINPR_API DWORD CredUIPromptForCredentialsW(PCREDUI_INFOW pUiInfo, PCWSTR pszTargetName,
@@ -116,6 +123,10 @@ WINPR_API DWORD CredUIStoreSSOCredA(PCSTR pszRealm, PCSTR pszUsername, PCSTR psz
 
 WINPR_API DWORD CredUIReadSSOCredW(PCWSTR pszRealm, PWSTR* ppszUsername);
 WINPR_API DWORD CredUIReadSSOCredA(PCSTR pszRealm, PSTR* ppszUsername);
+
+#ifdef __cplusplus
+}
+#endif
 
 #ifdef UNICODE
 #define CredUIPromptForCredentials		CredUIPromptForCredentialsW

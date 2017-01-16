@@ -3,6 +3,8 @@
  * FreeRDP Sample Server (Audio Input)
  *
  * Copyright 2012 Marc-Andre Moreau <marcandre.moreau@gmail.com>
+ * Copyright 2015 Thincast Technologies GmbH
+ * Copyright 2015 DI (FH) Martin Haimberger <martin.haimberger@thincast.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,44 +23,60 @@
 #include "config.h"
 #endif
 
+
+
 #include "sfreerdp.h"
 
 #include "sf_audin.h"
 
-static const rdpsndFormat test_audio_formats[] =
+#include <freerdp/log.h>
+#define TAG SERVER_TAG("sample")
+
+static const AUDIO_FORMAT test_audio_formats[] =
 {
-	{ 0x11, 2, 22050, 1024, 4, 0, NULL }, /* IMA ADPCM, 22050 Hz, 2 channels */
-	{ 0x11, 1, 22050, 512, 4, 0, NULL }, /* IMA ADPCM, 22050 Hz, 1 channels */
-	{ 0x01, 2, 22050, 4, 16, 0, NULL }, /* PCM, 22050 Hz, 2 channels, 16 bits */
-	{ 0x01, 1, 22050, 2, 16, 0, NULL }, /* PCM, 22050 Hz, 1 channels, 16 bits */
-	{ 0x01, 2, 44100, 4, 16, 0, NULL }, /* PCM, 44100 Hz, 2 channels, 16 bits */
-	{ 0x01, 1, 44100, 2, 16, 0, NULL }, /* PCM, 44100 Hz, 1 channels, 16 bits */
-	{ 0x01, 2, 11025, 4, 16, 0, NULL }, /* PCM, 11025 Hz, 2 channels, 16 bits */
-	{ 0x01, 1, 11025, 2, 16, 0, NULL }, /* PCM, 11025 Hz, 1 channels, 16 bits */
-	{ 0x01, 2, 8000, 4, 16, 0, NULL }, /* PCM, 8000 Hz, 2 channels, 16 bits */
-	{ 0x01, 1, 8000, 2, 16, 0, NULL } /* PCM, 8000 Hz, 1 channels, 16 bits */
+	{ WAVE_FORMAT_PCM, 2, 44100, 176400, 4, 16, 0, NULL },
+	{ WAVE_FORMAT_ALAW, 2, 22050, 44100, 2, 8, 0, NULL }
 };
 
-static void sf_peer_audin_opening(audin_server_context* context)
+/**
+ * Function description
+ *
+ * @return 0 on success, otherwise a Win32 error code
+ */
+static UINT sf_peer_audin_opening(audin_server_context* context)
 {
-	printf("AUDIN opening.\n");
+	WLog_DBG(TAG, "AUDIN opening.");
 	/* Simply choose the first format supported by the client. */
 	context->SelectFormat(context, 0);
+	return CHANNEL_RC_OK;
 }
 
-static void sf_peer_audin_open_result(audin_server_context* context, UINT32 result)
+/**
+ * Function description
+ *
+ * @return 0 on success, otherwise a Win32 error code
+ */
+static UINT sf_peer_audin_open_result(audin_server_context* context, UINT32 result)
 {
-	printf("AUDIN open result %d.\n", result);
+	WLog_DBG(TAG, "AUDIN open result %"PRIu32".", result);
+	return CHANNEL_RC_OK;
 }
 
-static void sf_peer_audin_receive_samples(audin_server_context* context, const void* buf, int nframes)
+/**
+ * Function description
+ *
+ * @return 0 on success, otherwise a Win32 error code
+ */
+static UINT sf_peer_audin_receive_samples(audin_server_context* context, const void* buf, int nframes)
 {
-	printf("AUDIN receive %d frames.\n", nframes);
+	WLog_DBG(TAG, "AUDIN receive %d frames.", nframes);
+	return CHANNEL_RC_OK;
 }
 
 void sf_peer_audin_init(testPeerContext* context)
 {
 	context->audin = audin_server_context_new(context->vcm);
+	context->audin->rdpcontext = &context->_p;
 	context->audin->data = context;
 
 	context->audin->server_formats = test_audio_formats;

@@ -22,9 +22,14 @@
 
 #include <freerdp/types.h>
 #include <freerdp/locale/keyboard.h>
+#include <freerdp/api.h>
 
-UINT32 freerdp_keyboard_init_xkbfile(UINT32 keyboardLayoutId, RDP_SCANCODE x11_keycode_to_rdp_scancode[256]);
-UINT32 detect_keyboard_layout_from_xkbfile(void* display);
-int freerdp_keyboard_load_map_from_xkbfile(void* display, RDP_SCANCODE x11_keycode_to_rdp_scancode[256]);
+FREERDP_LOCAL int freerdp_keyboard_init_xkbfile(DWORD* keyboardLayoutId,
+        DWORD x11_keycode_to_rdp_scancode[256]);
+
+FREERDP_LOCAL int detect_keyboard_layout_from_xkbfile(void* display,
+        DWORD* keyboardLayoutId);
+FREERDP_LOCAL int freerdp_keyboard_load_map_from_xkbfile(void* display,
+        DWORD x11_keycode_to_rdp_scancode[256]);
 
 #endif /* __LOCALE_KEYBOARD_XKB_H */

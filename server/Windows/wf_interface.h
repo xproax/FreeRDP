@@ -29,7 +29,12 @@
 
 #include <freerdp/freerdp.h>
 #include <freerdp/codec/rfx.h>
+
 #include <freerdp/server/rdpsnd.h>
+
+#if _WIN32_WINNT >= 0x0602
+#define WITH_DXGI_1_2	1
+#endif
 
 #define WF_SRV_CALLBACK_EVENT_CONNECT 1
 #define WF_SRV_CALLBACK_EVENT_DISCONNECT 2
@@ -41,9 +46,17 @@ typedef struct wf_peer_context wfPeerContext;
 
 struct wf_info
 {
-	STREAM* s;
-	int width;
-	int height;
+	wStream* s;
+
+	//screen and monitor info
+	int screenID;
+	int virtscreen_width;
+	int virtscreen_height;
+	int servscreen_width;
+	int servscreen_height;
+	int servscreen_xoffset;
+	int servscreen_yoffset;
+
 	int frame_idx;
 	int bitsPerPixel;
 	HDC driverDC;
@@ -59,6 +72,7 @@ struct wf_info
 
 	HANDLE snd_mutex;
 	BOOL snd_stop;
+	AUDIO_FORMAT* agreed_format;
 
 	RECT invalid;
 	HANDLE mutex;
@@ -87,8 +101,8 @@ struct wf_peer_context
 	HANDLE socketThread;
 	HANDLE socketSemaphore;
 
-	WTSVirtualChannelManager* vcm;
-	rdpsnd_server_context* rdpsnd;
+	HANDLE vcm;
+	RdpsndServerContext* rdpsnd;
 };
 
 struct wf_server
@@ -101,15 +115,18 @@ typedef struct wf_server wfServer;
 
 typedef void (__stdcall* cbCallback) (int, UINT32);
 
+FREERDP_API int get_screen_info(int id, _TCHAR* name, int* w, int* h, int* b);
+FREERDP_API void set_screen_id(int id);
+
 FREERDP_API BOOL wfreerdp_server_start(wfServer* server);
 FREERDP_API BOOL wfreerdp_server_stop(wfServer* server);
 
-FREERDP_API wfServer* wfreerdp_server_new();
+FREERDP_API wfServer* wfreerdp_server_new(void);
 FREERDP_API void wfreerdp_server_free(wfServer* server);
 
 FREERDP_API BOOL wfreerdp_server_is_running(wfServer* server);
 
-FREERDP_API UINT32 wfreerdp_server_num_peers();
+FREERDP_API UINT32 wfreerdp_server_num_peers(void);
 FREERDP_API UINT32 wfreerdp_server_get_peer_hostname(int pId, wchar_t * dstStr);
 FREERDP_API BOOL wfreerdp_server_peer_is_local(int pId);
 FREERDP_API BOOL wfreerdp_server_peer_is_connected(int pId);

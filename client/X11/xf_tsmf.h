@@ -20,10 +20,10 @@
 #ifndef __XF_TSMF_H
 #define __XF_TSMF_H
 
+#include "xf_client.h"
 #include "xfreerdp.h"
 
-void xf_tsmf_init(xfInfo* xfi, long xv_port);
-void xf_tsmf_uninit(xfInfo* xfi);
-void xf_process_tsmf_event(xfInfo* xfi, RDP_EVENT* event);
+int xf_tsmf_init(xfContext* xfc, TsmfClientContext* tsmf);
+int xf_tsmf_uninit(xfContext* xfc, TsmfClientContext* tsmf);
 
 #endif /* __XF_TSMF_H */

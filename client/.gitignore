@@ -1,2 +1,12 @@
-iOS
-Android
+/*
+!/Android
+!/common
+!/DirectFB
+!/iOS
+!/Mac
+!/Sample
+!/Windows
+!/X11
+!/Wayland
+!/CMakeLists.txt
+!*.in

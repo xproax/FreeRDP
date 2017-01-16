@@ -17,8 +17,8 @@
  * limitations under the License.
  */
 
-#ifndef __INPUT_API_H
-#define __INPUT_API_H
+#ifndef FREERDP_INPUT_H
+#define FREERDP_INPUT_H
 
 typedef struct rdp_input rdpInput;
 
@@ -26,19 +26,23 @@ typedef struct rdp_input rdpInput;
 #include <freerdp/freerdp.h>
 #include <freerdp/scancode.h>
 
+#include <winpr/crt.h>
+#include <winpr/collections.h>
+
 /* keyboard Flags */
 #define KBD_FLAGS_EXTENDED		0x0100
 #define KBD_FLAGS_DOWN			0x4000
 #define KBD_FLAGS_RELEASE		0x8000
 
 /* Pointer Flags */
+#define PTR_FLAGS_HWHEEL		0x0400
 #define PTR_FLAGS_WHEEL			0x0200
 #define PTR_FLAGS_WHEEL_NEGATIVE	0x0100
 #define PTR_FLAGS_MOVE			0x0800
 #define PTR_FLAGS_DOWN			0x8000
-#define PTR_FLAGS_BUTTON1		0x1000
-#define PTR_FLAGS_BUTTON2		0x2000
-#define PTR_FLAGS_BUTTON3		0x4000
+#define PTR_FLAGS_BUTTON1		0x1000 /* left */
+#define PTR_FLAGS_BUTTON2		0x2000 /* right */
+#define PTR_FLAGS_BUTTON3		0x4000 /* middle */
 #define WheelRotationMask		0x01FF
 
 /* Extended Pointer Flags */
@@ -54,11 +58,18 @@ typedef struct rdp_input rdpInput;
 
 #define RDP_CLIENT_INPUT_PDU_HEADER_LENGTH	4
 
-typedef void (*pSynchronizeEvent)(rdpInput* input, UINT32 flags);
-typedef void (*pKeyboardEvent)(rdpInput* input, UINT16 flags, UINT16 code);
-typedef void (*pUnicodeKeyboardEvent)(rdpInput* input, UINT16 flags, UINT16 code);
-typedef void (*pMouseEvent)(rdpInput* input, UINT16 flags, UINT16 x, UINT16 y);
-typedef void (*pExtendedMouseEvent)(rdpInput* input, UINT16 flags, UINT16 x, UINT16 y);
+/* defined inside libfreerdp-core */
+typedef struct rdp_input_proxy rdpInputProxy;
+
+/* Input Interface */
+
+typedef BOOL (*pSynchronizeEvent)(rdpInput* input, UINT32 flags);
+typedef BOOL (*pKeyboardEvent)(rdpInput* input, UINT16 flags, UINT16 code);
+typedef BOOL (*pUnicodeKeyboardEvent)(rdpInput* input, UINT16 flags, UINT16 code);
+typedef BOOL (*pMouseEvent)(rdpInput* input, UINT16 flags, UINT16 x, UINT16 y);
+typedef BOOL (*pExtendedMouseEvent)(rdpInput* input, UINT16 flags, UINT16 x, UINT16 y);
+typedef BOOL (*pFocusInEvent)(rdpInput* input, UINT16 toggleStates);
+typedef BOOL (*pKeyboardPauseEvent)(rdpInput* input);
 
 struct rdp_input
 {
@@ -71,14 +82,33 @@ struct rdp_input
 	pUnicodeKeyboardEvent UnicodeKeyboardEvent; /* 18 */
 	pMouseEvent MouseEvent; /* 19 */
 	pExtendedMouseEvent ExtendedMouseEvent; /* 20 */
-	UINT32 paddingB[32 - 21]; /* 21 */
+	pFocusInEvent FocusInEvent; /*21 */
+	pKeyboardPauseEvent KeyboardPauseEvent; /* 22 */
+
+	UINT32 paddingB[32 - 23]; /* 23 */
+
+	/* Internal */
+
+	BOOL asynchronous;
+	rdpInputProxy* proxy;
+	wMessageQueue* queue;
 };
 
-FREERDP_API void freerdp_input_send_synchronize_event(rdpInput* input, UINT32 flags);
-FREERDP_API void freerdp_input_send_keyboard_event(rdpInput* input, UINT16 flags, UINT16 code);
-FREERDP_API void freerdp_input_send_keyboard_event_ex(rdpInput* input, BOOL down, UINT32 rdp_scancode);
-FREERDP_API void freerdp_input_send_unicode_keyboard_event(rdpInput* input, UINT16 flags, UINT16 code);
-FREERDP_API void freerdp_input_send_mouse_event(rdpInput* input, UINT16 flags, UINT16 x, UINT16 y);
-FREERDP_API void freerdp_input_send_extended_mouse_event(rdpInput* input, UINT16 flags, UINT16 x, UINT16 y);
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-#endif /* __INPUT_API_H */
+FREERDP_API BOOL freerdp_input_send_synchronize_event(rdpInput* input, UINT32 flags);
+FREERDP_API BOOL freerdp_input_send_keyboard_event(rdpInput* input, UINT16 flags, UINT16 code);
+FREERDP_API BOOL freerdp_input_send_keyboard_event_ex(rdpInput* input, BOOL down, UINT32 rdp_scancode);
+FREERDP_API BOOL freerdp_input_send_keyboard_pause_event(rdpInput* input);
+FREERDP_API BOOL freerdp_input_send_unicode_keyboard_event(rdpInput* input, UINT16 flags, UINT16 code);
+FREERDP_API BOOL freerdp_input_send_mouse_event(rdpInput* input, UINT16 flags, UINT16 x, UINT16 y);
+FREERDP_API BOOL freerdp_input_send_extended_mouse_event(rdpInput* input, UINT16 flags, UINT16 x, UINT16 y);
+FREERDP_API BOOL freerdp_input_send_focus_in_event(rdpInput* input, UINT16 toggleStates);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* FREERDP_INPUT_H */

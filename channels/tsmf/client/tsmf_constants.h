@@ -67,6 +67,7 @@
 #define NOTIFY_PREROLL                      0x00000113
 #define UPDATE_GEOMETRY_INFO                0x00000114
 #define REMOVE_STREAM                       0x00000115
+#define SET_SOURCE_VIDEO_RECT               0x00000116
 
 /* Supported platform */
 #define MMREDIR_CAPABILITY_PLATFORM_MF      0x00000001
@@ -117,6 +118,15 @@
 #define TSMF_SUB_TYPE_MP43                 17
 #define TSMF_SUB_TYPE_MP4S                 18
 #define TSMF_SUB_TYPE_MP42                 19
+#define TSMF_SUB_TYPE_OGG                  20
+#define TSMF_SUB_TYPE_SPEEX                21
+#define TSMF_SUB_TYPE_THEORA               22
+#define TSMF_SUB_TYPE_FLAC                 23
+#define TSMF_SUB_TYPE_VP8                  24
+#define TSMF_SUB_TYPE_VP9                  25
+#define TSMF_SUB_TYPE_H263                 26
+#define TSMF_SUB_TYPE_M4S2                 27
+#define TSMF_SUB_TYPE_WMA1                 28
 
 /* FormatType */
 #define TSMF_FORMAT_TYPE_UNKNOWN            0

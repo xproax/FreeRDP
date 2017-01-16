@@ -1,11 +1,7 @@
 
 set(OPTION_DEFAULT OFF)
 set(OPTION_CLIENT_DEFAULT ON)
-set(OPTION_SERVER_DEFAULT OFF)
-
-if(${OPTION_CLIENT_DEFAULT} OR ${OPTION_SERVER_DEFAULT})
-	set(OPTION_DEFAULT ON)
-endif()
+set(OPTION_SERVER_DEFAULT ON)
 
 define_channel_options(NAME "rdpdr" TYPE "static"
 	DESCRIPTION "Device Redirection Virtual Channel Extension"

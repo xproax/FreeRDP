@@ -28,40 +28,51 @@
 #include "activation.h"
 
 #include <freerdp/settings.h>
-#include <freerdp/utils/memory.h>
+#include <freerdp/api.h>
 
 enum CONNECTION_STATE
 {
-	CONNECTION_STATE_INITIAL = 0,
+	CONNECTION_STATE_INITIAL,
 	CONNECTION_STATE_NEGO,
+	CONNECTION_STATE_NLA,
 	CONNECTION_STATE_MCS_CONNECT,
 	CONNECTION_STATE_MCS_ERECT_DOMAIN,
 	CONNECTION_STATE_MCS_ATTACH_USER,
 	CONNECTION_STATE_MCS_CHANNEL_JOIN,
-	CONNECTION_STATE_ESTABLISH_KEYS,
-	CONNECTION_STATE_LICENSE,
-	CONNECTION_STATE_CAPABILITY,
+	CONNECTION_STATE_RDP_SECURITY_COMMENCEMENT,
+	CONNECTION_STATE_SECURE_SETTINGS_EXCHANGE,
+	CONNECTION_STATE_CONNECT_TIME_AUTO_DETECT,
+	CONNECTION_STATE_LICENSING,
+	CONNECTION_STATE_MULTITRANSPORT_BOOTSTRAPPING,
+	CONNECTION_STATE_CAPABILITIES_EXCHANGE,
 	CONNECTION_STATE_FINALIZATION,
 	CONNECTION_STATE_ACTIVE
 };
 
-BOOL rdp_client_connect(rdpRdp* rdp);
-BOOL rdp_client_redirect(rdpRdp* rdp);
-BOOL rdp_client_connect_mcs_connect_response(rdpRdp* rdp, STREAM* s);
-BOOL rdp_client_connect_mcs_attach_user_confirm(rdpRdp* rdp, STREAM* s);
-BOOL rdp_client_connect_mcs_channel_join_confirm(rdpRdp* rdp, STREAM* s);
-BOOL rdp_client_connect_license(rdpRdp* rdp, STREAM* s);
-BOOL rdp_client_connect_demand_active(rdpRdp* rdp, STREAM* s);
-BOOL rdp_client_connect_finalize(rdpRdp* rdp);
+FREERDP_LOCAL BOOL rdp_client_connect(rdpRdp* rdp);
+FREERDP_LOCAL BOOL rdp_client_disconnect(rdpRdp* rdp);
+FREERDP_LOCAL BOOL rdp_client_reconnect(rdpRdp* rdp);
+FREERDP_LOCAL BOOL rdp_client_redirect(rdpRdp* rdp);
+FREERDP_LOCAL BOOL rdp_client_connect_mcs_channel_join_confirm(rdpRdp* rdp,
+        wStream* s);
+FREERDP_LOCAL BOOL rdp_client_connect_auto_detect(rdpRdp* rdp, wStream* s);
+FREERDP_LOCAL int rdp_client_connect_license(rdpRdp* rdp, wStream* s);
+FREERDP_LOCAL int rdp_client_connect_demand_active(rdpRdp* rdp, wStream* s);
+FREERDP_LOCAL int rdp_client_connect_finalize(rdpRdp* rdp);
+FREERDP_LOCAL int rdp_client_transition_to_state(rdpRdp* rdp, int state);
 
-BOOL rdp_server_accept_nego(rdpRdp* rdp, STREAM* s);
-BOOL rdp_server_accept_mcs_connect_initial(rdpRdp* rdp, STREAM* s);
-BOOL rdp_server_accept_mcs_erect_domain_request(rdpRdp* rdp, STREAM* s);
-BOOL rdp_server_accept_mcs_attach_user_request(rdpRdp* rdp, STREAM* s);
-BOOL rdp_server_accept_mcs_channel_join_request(rdpRdp* rdp, STREAM* s);
-BOOL rdp_server_accept_client_keys(rdpRdp* rdp, STREAM* s);
-BOOL rdp_server_accept_client_info(rdpRdp* rdp, STREAM* s);
-BOOL rdp_server_accept_confirm_active(rdpRdp* rdp, STREAM* s);
-BOOL rdp_server_reactivate(rdpRdp* rdp);
+FREERDP_LOCAL BOOL rdp_server_accept_nego(rdpRdp* rdp, wStream* s);
+FREERDP_LOCAL BOOL rdp_server_accept_mcs_connect_initial(rdpRdp* rdp,
+        wStream* s);
+FREERDP_LOCAL BOOL rdp_server_accept_mcs_erect_domain_request(rdpRdp* rdp,
+        wStream* s);
+FREERDP_LOCAL BOOL rdp_server_accept_mcs_attach_user_request(rdpRdp* rdp,
+        wStream* s);
+FREERDP_LOCAL BOOL rdp_server_accept_mcs_channel_join_request(rdpRdp* rdp,
+        wStream* s);
+FREERDP_LOCAL BOOL rdp_server_accept_confirm_active(rdpRdp* rdp, wStream* s);
+FREERDP_LOCAL BOOL rdp_server_establish_keys(rdpRdp* rdp, wStream* s);
+FREERDP_LOCAL BOOL rdp_server_reactivate(rdpRdp* rdp);
+FREERDP_LOCAL int rdp_server_transition_to_state(rdpRdp* rdp, int state);
 
 #endif /* __CONNECTION_H */

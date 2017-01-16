@@ -3,6 +3,7 @@
  * Audio Output Virtual Channel
  *
  * Copyright 2010-2011 Vic Lee
+ * Copyright 2012-2013 Marc-Andre Moreau <marcandre.moreau@gmail.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,47 +21,20 @@
 #ifndef __RDPSND_MAIN_H
 #define __RDPSND_MAIN_H
 
-#include <freerdp/channels/rdpsnd.h>
+#include <freerdp/api.h>
+#include <freerdp/svc.h>
+#include <freerdp/addin.h>
+#include <freerdp/client/rdpsnd.h>
+#include <freerdp/channels/log.h>
 
-typedef struct rdpsnd_plugin rdpsndPlugin;
+#define TAG CHANNELS_TAG("rdpsnd.client")
 
-typedef struct rdpsnd_device_plugin rdpsndDevicePlugin;
+#if defined(WITH_DEBUG_SND)
+#define DEBUG_SND(...) WLog_DBG(TAG, __VA_ARGS__)
+#else
+#define DEBUG_SND(...) do { } while (0)
+#endif
 
-typedef BOOL (*pcFormatSupported) (rdpsndDevicePlugin* device, rdpsndFormat* format);
-typedef void (*pcOpen) (rdpsndDevicePlugin* device, rdpsndFormat* format, int latency);
-typedef void (*pcSetFormat) (rdpsndDevicePlugin* device, rdpsndFormat* format, int latency);
-typedef void (*pcSetVolume) (rdpsndDevicePlugin* device, UINT32 value);
-typedef void (*pcPlay) (rdpsndDevicePlugin* device, BYTE* data, int size);
-typedef void (*pcStart) (rdpsndDevicePlugin* device);
-typedef void (*pcClose) (rdpsndDevicePlugin* device);
-typedef void (*pcFree) (rdpsndDevicePlugin* device);
-
-struct rdpsnd_device_plugin
-{
-	pcFormatSupported FormatSupported;
-	pcOpen Open;
-	pcSetFormat SetFormat;
-	pcSetVolume SetVolume;
-	pcPlay Play;
-	pcStart Start;
-	pcClose Close;
-	pcFree Free;
-};
-
-#define RDPSND_DEVICE_EXPORT_FUNC_NAME "FreeRDPRdpsndDeviceEntry"
-
-typedef void (*PREGISTERRDPSNDDEVICE)(rdpsndPlugin* rdpsnd, rdpsndDevicePlugin* device);
-
-struct _FREERDP_RDPSND_DEVICE_ENTRY_POINTS
-{
-	rdpsndPlugin* rdpsnd;
-	PREGISTERRDPSNDDEVICE pRegisterRdpsndDevice;
-	RDP_PLUGIN_DATA* plugin_data;
-};
-typedef struct _FREERDP_RDPSND_DEVICE_ENTRY_POINTS FREERDP_RDPSND_DEVICE_ENTRY_POINTS;
-typedef FREERDP_RDPSND_DEVICE_ENTRY_POINTS* PFREERDP_RDPSND_DEVICE_ENTRY_POINTS;
-
-typedef int (*PFREERDP_RDPSND_DEVICE_ENTRY)(PFREERDP_RDPSND_DEVICE_ENTRY_POINTS pEntryPoints);
+UINT rdpsnd_virtual_channel_write(rdpsndPlugin* rdpsnd, wStream* s);
 
 #endif /* __RDPSND_MAIN_H */
-

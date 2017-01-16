@@ -1,8 +1,10 @@
 /**
  * FreeRDP: A Remote Desktop Protocol Implementation
- * Clipboard Virtual Channel Types
+ * Clipboard Virtual Channel Extension
  *
  * Copyright 2011 Vic Lee
+ * Copyright 2015 Thincast Technologies GmbH
+ * Copyright 2015 DI (FH) Martin Haimberger <martin.haimberger@thincast.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,58 +19,165 @@
  * limitations under the License.
  */
 
-#ifndef __CLIPRDR_PLUGIN
-#define __CLIPRDR_PLUGIN
+#ifndef FREERDP_CHANNEL_CLIENT_CLIPRDR_H
+#define FREERDP_CHANNEL_CLIENT_CLIPRDR_H
+
+#include <freerdp/types.h>
+
+#include <freerdp/message.h>
+#include <freerdp/channels/cliprdr.h>
+#include <freerdp/freerdp.h>
 
 /**
- * Event Types
- */
-#define RDP_EVENT_TYPE_CB_MONITOR_READY		1
-#define RDP_EVENT_TYPE_CB_FORMAT_LIST		2
-#define RDP_EVENT_TYPE_CB_DATA_REQUEST		3
-#define RDP_EVENT_TYPE_CB_DATA_RESPONSE		4
-
-/**
- * Clipboard Formats
+ * Client Interface
  */
 
-#define CB_FORMAT_RAW			0x0000
-#define CB_FORMAT_TEXT			0x0001
-#define CB_FORMAT_DIB			0x0008
-#define CB_FORMAT_UNICODETEXT		0x000D
-#define CB_FORMAT_HTML			0xD010
-#define CB_FORMAT_PNG			0xD011
-#define CB_FORMAT_JPEG			0xD012
-#define CB_FORMAT_GIF			0xD013
+typedef struct _cliprdr_client_context CliprdrClientContext;
+
+typedef UINT (*pcCliprdrServerCapabilities)(CliprdrClientContext* context, CLIPRDR_CAPABILITIES* capabilities);
+typedef UINT (*pcCliprdrClientCapabilities)(CliprdrClientContext* context, CLIPRDR_CAPABILITIES* capabilities);
+typedef UINT (*pcCliprdrMonitorReady)(CliprdrClientContext* context, CLIPRDR_MONITOR_READY* monitorReady);
+typedef UINT (*pcCliprdrTempDirectory)(CliprdrClientContext* context, CLIPRDR_TEMP_DIRECTORY* tempDirectory);
+typedef UINT (*pcCliprdrClientFormatList)(CliprdrClientContext* context, CLIPRDR_FORMAT_LIST* formatList);
+typedef UINT (*pcCliprdrServerFormatList)(CliprdrClientContext* context, CLIPRDR_FORMAT_LIST* formatList);
+typedef UINT (*pcCliprdrClientFormatListResponse)(CliprdrClientContext* context, CLIPRDR_FORMAT_LIST_RESPONSE* formatListResponse);
+typedef UINT (*pcCliprdrServerFormatListResponse)(CliprdrClientContext* context, CLIPRDR_FORMAT_LIST_RESPONSE* formatListResponse);
+typedef UINT (*pcCliprdrClientLockClipboardData)(CliprdrClientContext* context, CLIPRDR_LOCK_CLIPBOARD_DATA* lockClipboardData);
+typedef UINT (*pcCliprdrServerLockClipboardData)(CliprdrClientContext* context, CLIPRDR_LOCK_CLIPBOARD_DATA* lockClipboardData);
+typedef UINT (*pcCliprdrClientUnlockClipboardData)(CliprdrClientContext* context, CLIPRDR_UNLOCK_CLIPBOARD_DATA* unlockClipboardData);
+typedef UINT (*pcCliprdrServerUnlockClipboardData)(CliprdrClientContext* context, CLIPRDR_UNLOCK_CLIPBOARD_DATA* unlockClipboardData);
+typedef UINT (*pcCliprdrClientFormatDataRequest)(CliprdrClientContext* context, CLIPRDR_FORMAT_DATA_REQUEST* formatDataRequest);
+typedef UINT (*pcCliprdrServerFormatDataRequest)(CliprdrClientContext* context, CLIPRDR_FORMAT_DATA_REQUEST* formatDataRequest);
+typedef UINT (*pcCliprdrClientFormatDataResponse)(CliprdrClientContext* context, CLIPRDR_FORMAT_DATA_RESPONSE* formatDataResponse);
+typedef UINT (*pcCliprdrServerFormatDataResponse)(CliprdrClientContext* context, CLIPRDR_FORMAT_DATA_RESPONSE* formatDataResponse);
+typedef UINT (*pcCliprdrClientFileContentsRequest)(CliprdrClientContext* context, CLIPRDR_FILE_CONTENTS_REQUEST* fileContentsRequest);
+typedef UINT (*pcCliprdrServerFileContentsRequest)(CliprdrClientContext* context, CLIPRDR_FILE_CONTENTS_REQUEST* fileContentsRequest);
+typedef UINT (*pcCliprdrClientFileContentsResponse)(CliprdrClientContext* context, CLIPRDR_FILE_CONTENTS_RESPONSE* fileContentsResponse);
+typedef UINT (*pcCliprdrServerFileContentsResponse)(CliprdrClientContext* context, CLIPRDR_FILE_CONTENTS_RESPONSE* fileContentsResponse);
+
+struct _cliprdr_client_context
+{
+	void* handle;
+	void* custom;
+
+	pcCliprdrServerCapabilities ServerCapabilities;
+	pcCliprdrClientCapabilities ClientCapabilities;
+	pcCliprdrMonitorReady MonitorReady;
+	pcCliprdrTempDirectory TempDirectory;
+	pcCliprdrClientFormatList ClientFormatList;
+	pcCliprdrServerFormatList ServerFormatList;
+	pcCliprdrClientFormatListResponse ClientFormatListResponse;
+	pcCliprdrServerFormatListResponse ServerFormatListResponse;
+	pcCliprdrClientLockClipboardData ClientLockClipboardData;
+	pcCliprdrServerLockClipboardData ServerLockClipboardData;
+	pcCliprdrClientUnlockClipboardData ClientUnlockClipboardData;
+	pcCliprdrServerUnlockClipboardData ServerUnlockClipboardData;
+	pcCliprdrClientFormatDataRequest ClientFormatDataRequest;
+	pcCliprdrServerFormatDataRequest ServerFormatDataRequest;
+	pcCliprdrClientFormatDataResponse ClientFormatDataResponse;
+	pcCliprdrServerFormatDataResponse ServerFormatDataResponse;
+	pcCliprdrClientFileContentsRequest ClientFileContentsRequest;
+	pcCliprdrServerFileContentsRequest ServerFileContentsRequest;
+	pcCliprdrClientFileContentsResponse ClientFileContentsResponse;
+	pcCliprdrServerFileContentsResponse ServerFileContentsResponse;
+
+	rdpContext* rdpcontext;
+};
+
+struct _CLIPRDR_FORMAT_NAME
+{
+	UINT32 id;
+	char* name;
+	int length;
+};
+typedef struct _CLIPRDR_FORMAT_NAME CLIPRDR_FORMAT_NAME;
 
 /**
  * Clipboard Events
  */
-typedef RDP_EVENT RDP_CB_MONITOR_READY_EVENT;
+
+struct _RDP_CB_CLIP_CAPS
+{
+	wMessage event;
+	UINT32 capabilities;
+};
+typedef struct _RDP_CB_CLIP_CAPS RDP_CB_CLIP_CAPS;
+
+struct _RDP_CB_MONITOR_READY_EVENT
+{
+	wMessage event;
+	UINT32 capabilities;
+};
+typedef struct _RDP_CB_MONITOR_READY_EVENT RDP_CB_MONITOR_READY_EVENT;
 
 struct _RDP_CB_FORMAT_LIST_EVENT
 {
-	RDP_EVENT event;
+	wMessage event;
 	UINT32* formats;
 	UINT16 num_formats;
 	BYTE* raw_format_data;
 	UINT32 raw_format_data_size;
+	BOOL raw_format_unicode;
 };
 typedef struct _RDP_CB_FORMAT_LIST_EVENT RDP_CB_FORMAT_LIST_EVENT;
 
 struct _RDP_CB_DATA_REQUEST_EVENT
 {
-	RDP_EVENT event;
+	wMessage event;
 	UINT32 format;
 };
 typedef struct _RDP_CB_DATA_REQUEST_EVENT RDP_CB_DATA_REQUEST_EVENT;
 
 struct _RDP_CB_DATA_RESPONSE_EVENT
 {
-	RDP_EVENT event;
+	wMessage event;
 	BYTE* data;
 	UINT32 size;
 };
 typedef struct _RDP_CB_DATA_RESPONSE_EVENT RDP_CB_DATA_RESPONSE_EVENT;
 
-#endif /* __CLIPRDR_PLUGIN */
+
+struct _RDP_CB_FILECONTENTS_REQUEST_EVENT
+{
+	wMessage event;
+	UINT32 streamId;
+	UINT32 lindex;
+	UINT32 dwFlags;
+	UINT32 nPositionLow;
+	UINT32 nPositionHigh;
+	UINT32 cbRequested;
+	UINT32 clipDataId;
+};
+typedef struct _RDP_CB_FILECONTENTS_REQUEST_EVENT RDP_CB_FILECONTENTS_REQUEST_EVENT;
+
+struct _RDP_CB_FILECONTENTS_RESPONSE_EVENT
+{
+	wMessage event;
+	BYTE* data;
+	UINT32 size;
+	UINT32 streamId;
+};
+typedef struct _RDP_CB_FILECONTENTS_RESPONSE_EVENT RDP_CB_FILECONTENTS_RESPONSE_EVENT;
+
+struct _RDP_CB_LOCK_CLIPDATA_EVENT
+{
+	wMessage event;
+	UINT32 clipDataId;
+};
+typedef struct _RDP_CB_LOCK_CLIPDATA_EVENT RDP_CB_LOCK_CLIPDATA_EVENT ;
+
+struct _RDP_CB_UNLOCK_CLIPDATA_EVENT
+{
+	wMessage event;
+	UINT32 clipDataId;
+};
+typedef struct _RDP_CB_UNLOCK_CLIPDATA_EVENT RDP_CB_UNLOCK_CLIPDATA_EVENT ;
+
+struct _RDP_CB_TEMPDIR_EVENT
+{
+	wMessage event;
+	char dirname[520];
+};
+typedef struct _RDP_CB_TEMPDIR_EVENT RDP_CB_TEMPDIR_EVENT;
+
+#endif /* FREERDP_CHANNEL_CLIENT_CLIPRDR_H */

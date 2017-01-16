@@ -15,26 +15,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set(MODULE_NAME "winpr-path")
-set(MODULE_PREFIX "WINPR_PATH")
+winpr_module_add(path.c shell.c)
 
-set(${MODULE_PREFIX}_SRCS
-	path.c)
-
-add_complex_library(MODULE ${MODULE_NAME} TYPE "OBJECT"
-	MONOLITHIC ${MONOLITHIC_BUILD}
-	SOURCES ${${MODULE_PREFIX}_SRCS})
-
-set_target_properties(${MODULE_NAME} PROPERTIES VERSION ${WINPR_VERSION_FULL} SOVERSION ${WINPR_VERSION} PREFIX "lib")
-
-if(MONOLITHIC_BUILD)
-
-else()
-	target_link_libraries(${MODULE_NAME} winpr-crt winpr-heap)
-	install(TARGETS ${MODULE_NAME} DESTINATION ${CMAKE_INSTALL_LIBDIR})
-endif()
-
-set_property(TARGET ${MODULE_NAME} PROPERTY FOLDER "WinPR")
+if (IOS)
+	winpr_module_add(shell_ios.m)
+endif (IOS)
 
 if(BUILD_TESTING)
 	add_subdirectory(test)

@@ -17,13 +17,14 @@
  * limitations under the License.
  */
 
-#ifndef __FREERDP_LOCALE_KEYBOARD_H
-#define __FREERDP_LOCALE_KEYBOARD_H
+#ifndef FREERDP_LOCALE_KEYBOARD_H
+#define FREERDP_LOCALE_KEYBOARD_H
+
+#include <winpr/input.h>
 
 #include <freerdp/api.h>
 #include <freerdp/types.h>
 #include <freerdp/scancode.h>
-#include <freerdp/locale/vkcodes.h>
 
 #define RDP_KEYBOARD_LAYOUT_TYPE_STANDARD   1
 #define RDP_KEYBOARD_LAYOUT_TYPE_VARIANT    2
@@ -31,7 +32,7 @@
 
 struct _RDP_KEYBOARD_LAYOUT
 {
-	UINT32 code; /* Keyboard layout code */
+	DWORD code; /* Keyboard layout code */
 	char* name; /* Keyboard layout name */
 };
 typedef struct _RDP_KEYBOARD_LAYOUT RDP_KEYBOARD_LAYOUT;
@@ -115,9 +116,10 @@ typedef struct _RDP_KEYBOARD_LAYOUT RDP_KEYBOARD_LAYOUT;
 #define KBD_SWEDISH_WITH_SAMI			0x0000083B
 #define KBD_UZBEK_CYRILLIC			0x00000843
 #define KBD_INUKTITUT_LATIN			0x0000085D
+#define KBD_CANADIAN_ENGLISH		0x00001009
 #define KBD_CANADIAN_FRENCH_LEGACY		0x00000C0C
 #define KBD_SERBIAN_CYRILLIC			0x00000C1A
-#define KBD_CANADIAN_FRENCH			0x00001009
+#define KBD_CANADIAN_FRENCH			0x00000C0C
 #define KBD_SWISS_FRENCH			0x0000100C
 #define KBD_BOSNIAN				0x0000141A
 #define KBD_IRISH				0x00001809
@@ -164,9 +166,11 @@ typedef struct _RDP_KEYBOARD_LAYOUT RDP_KEYBOARD_LAYOUT;
 #define KBD_THAI_PATTACHOTE_NON_SHIFTLOCK		0x0003041E
 #define KBD_GREEK_319_LATIN				0x00040408
 #define KBD_UNITED_STATES_DVORAK_FOR_RIGHT_HAND		0x00040409
+#define KBD_UNITED_STATES_DVORAK_PROGRAMMER		0x19360409
 #define KBD_GREEK_LATIN					0x00050408
 #define KBD_US_ENGLISH_TABLE_FOR_IBM_ARABIC_238_L	0x00050409
 #define KBD_GREEK_POLYTONIC				0x00060408
+#define KBD_FRENCH_BEPO					0xa000040c
 #define KBD_GERMAN_NEO					0xB0000407
 
 /* Global Input Method Editor (IME) IDs */
@@ -198,11 +202,20 @@ typedef struct _RDP_KEYBOARD_LAYOUT RDP_KEYBOARD_LAYOUT;
 #define KBD_TYPE_NOKIA_9140					0x00000006 /* Nokia 9140 and similar keyboards */
 #define KBD_TYPE_JAPANESE					0x00000007 /* Japanese keyboard */
 
-FREERDP_API UINT32 freerdp_keyboard_init(UINT32 keyboardLayoutId);
-FREERDP_API RDP_KEYBOARD_LAYOUT* freerdp_keyboard_get_layouts(UINT32 types);
-FREERDP_API const char* freerdp_keyboard_get_layout_name_from_id(UINT32 keyboardLayoutId);
-FREERDP_API RDP_SCANCODE freerdp_keyboard_get_rdp_scancode_from_x11_keycode(UINT32 keycode);
-FREERDP_API UINT32 freerdp_keyboard_get_x11_keycode_from_rdp_scancode(UINT32 scancode, BOOL extended);
-FREERDP_API RDP_SCANCODE freerdp_keyboard_get_rdp_scancode_from_virtual_key_code(UINT32 vkcode);
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-#endif /* __FREERDP_LOCALE_KEYBOARD_H */
+FREERDP_API DWORD freerdp_keyboard_init(DWORD keyboardLayoutId);
+FREERDP_API RDP_KEYBOARD_LAYOUT* freerdp_keyboard_get_layouts(DWORD types);
+FREERDP_API void freerdp_keyboard_layouts_free(RDP_KEYBOARD_LAYOUT* layouts);
+FREERDP_API const char* freerdp_keyboard_get_layout_name_from_id(DWORD keyboardLayoutId);
+FREERDP_API DWORD freerdp_keyboard_get_layout_id_from_name(const char* name);
+FREERDP_API DWORD freerdp_keyboard_get_rdp_scancode_from_x11_keycode(DWORD keycode);
+FREERDP_API DWORD freerdp_keyboard_get_x11_keycode_from_rdp_scancode(DWORD scancode, BOOL extended);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* FREERDP_LOCALE_KEYBOARD_H */

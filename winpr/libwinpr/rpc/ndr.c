@@ -39,6 +39,9 @@
 
 #include "ndr_private.h"
 
+#include "../log.h"
+#define TAG WINPR_TAG("rpc")
+
 /**
  * MSRPC NDR Types Technical Overview:
  * http://dvlabs.tippingpoint.com/blog/2007/11/24/msrpc-ndr-types/
@@ -47,29 +50,40 @@
 void NdrPrintParamAttributes(PARAM_ATTRIBUTES attributes)
 {
 	if (attributes.ServerAllocSize)
-		printf("ServerAllocSize, ");
+		WLog_INFO(TAG, "ServerAllocSize, ");
+
 	if (attributes.SaveForAsyncFinish)
-		printf("SaveForAsyncFinish, ");
+		WLog_INFO(TAG, "SaveForAsyncFinish, ");
+
 	if (attributes.IsDontCallFreeInst)
-		printf("IsDontCallFreeInst, ");
+		WLog_INFO(TAG, "IsDontCallFreeInst, ");
+
 	if (attributes.IsSimpleRef)
-		printf("IsSimpleRef, ");
+		WLog_INFO(TAG, "IsSimpleRef, ");
+
 	if (attributes.IsByValue)
-		printf("IsByValue, ");
+		WLog_INFO(TAG, "IsByValue, ");
+
 	if (attributes.IsBasetype)
-		printf("IsBaseType, ");
+		WLog_INFO(TAG, "IsBaseType, ");
+
 	if (attributes.IsReturn)
-		printf("IsReturn, ");
+		WLog_INFO(TAG, "IsReturn, ");
+
 	if (attributes.IsOut)
-		printf("IsOut, ");
+		WLog_INFO(TAG, "IsOut, ");
+
 	if (attributes.IsIn)
-		printf("IsIn, ");
+		WLog_INFO(TAG, "IsIn, ");
+
 	if (attributes.IsPipe)
-		printf("IsPipe, ");
+		WLog_INFO(TAG, "IsPipe, ");
+
 	if (attributes.MustFree)
-		printf("MustFree, ");
+		WLog_INFO(TAG, "MustFree, ");
+
 	if (attributes.MustSize)
-		printf("MustSize, ");
+		WLog_INFO(TAG, "MustSize, ");
 }
 
 void NdrProcessParam(PMIDL_STUB_MESSAGE pStubMsg, NDR_PHASE phase, unsigned char* pMemory, NDR_PARAM* param)
@@ -136,47 +150,40 @@ void NdrProcessParams(PMIDL_STUB_MESSAGE pStubMsg, PFORMAT_STRING pFormat, NDR_P
 	PFORMAT_STRING fmt;
 	unsigned char* arg;
 	unsigned char type;
-
 	params = (NDR_PARAM*) pFormat;
-
-	printf("Params = \n{\n");
+	WLog_INFO(TAG, "Params = ");
 
 	for (i = 0; i < numberParams; i++)
 	{
+#ifdef __x86_64__
+		float tmp;
+#endif
 		arg = pStubMsg->StackTop + params[i].StackOffset;
 		fmt = (PFORMAT_STRING) &pStubMsg->StubDesc->pFormatTypes[params[i].Type.Offset];
-
 #ifdef __x86_64__
+
 		if ((params[i].Attributes.IsBasetype) &&
 				!(params[i].Attributes.IsSimpleRef) &&
 				((params[i].Type.FormatChar) == FC_FLOAT) && !fpuArgs)
 		{
-			float tmp = *(double*) arg;
+			tmp = *(double*) arg;
 			arg = (unsigned char*) &tmp;
 		}
+
 #endif
-
-		printf("\t#%d\t", i);
-
 		type = (params[i].Attributes.IsBasetype) ? params[i].Type.FormatChar : *fmt;
-
-		printf(" type %s (0x%02X) ", FC_TYPE_STRINGS[type], type);
-
+		WLog_INFO(TAG, "'\t#%u\ttype %s (0x%02X) ", i, FC_TYPE_STRINGS[type], type);
 		NdrPrintParamAttributes(params[i].Attributes);
 
 		if (params[i].Attributes.IsIn)
 		{
 			NdrProcessParam(pStubMsg, phase, arg, &params[i]);
 		}
-
-		printf("\n");
 	}
-
-	printf("}\n");
 }
 
 void NdrClientInitializeNew(PRPC_MESSAGE pRpcMessage, PMIDL_STUB_MESSAGE pStubMsg,
-		PMIDL_STUB_DESC pStubDesc, unsigned int ProcNum)
+							PMIDL_STUB_DESC pStubDesc, unsigned int ProcNum)
 {
 	pRpcMessage->Handle = NULL;
 	pRpcMessage->RpcFlags = 0;
@@ -184,7 +191,6 @@ void NdrClientInitializeNew(PRPC_MESSAGE pRpcMessage, PMIDL_STUB_MESSAGE pStubMs
 	pRpcMessage->DataRepresentation = 0;
 	pRpcMessage->ReservedForRuntime = NULL;
 	pRpcMessage->RpcInterfaceInformation = pStubDesc->RpcInterfaceInformation;
-
 	pStubMsg->RpcMsg = pRpcMessage;
 	pStubMsg->BufferStart = NULL;
 	pStubMsg->BufferEnd = NULL;
@@ -198,33 +204,43 @@ void NdrClientInitializeNew(PRPC_MESSAGE pRpcMessage, PMIDL_STUB_MESSAGE pStubMs
 void NdrPrintOptFlags(INTERPRETER_OPT_FLAGS optFlags)
 {
 	if (optFlags.ClientMustSize)
-		printf("ClientMustSize, ");
+		WLog_INFO(TAG, "ClientMustSize, ");
+
 	if (optFlags.ServerMustSize)
-		printf("ServerMustSize, ");
+		WLog_INFO(TAG, "ServerMustSize, ");
+
 	if (optFlags.HasAsyncUuid)
-		printf("HasAsyncUiid, ");
+		WLog_INFO(TAG, "HasAsyncUiid, ");
+
 	if (optFlags.HasAsyncHandle)
-		printf("HasAsyncHandle, ");
+		WLog_INFO(TAG, "HasAsyncHandle, ");
+
 	if (optFlags.HasReturn)
-		printf("HasReturn, ");
+		WLog_INFO(TAG, "HasReturn, ");
+
 	if (optFlags.HasPipes)
-		printf("HasPipes, ");
+		WLog_INFO(TAG, "HasPipes, ");
+
 	if (optFlags.HasExtensions)
-		printf("HasExtensions, ");
+		WLog_INFO(TAG, "HasExtensions, ");
 }
 
 void NdrPrintExtFlags(INTERPRETER_OPT_FLAGS2 extFlags)
 {
 	if (extFlags.HasNewCorrDesc)
-		printf("HasNewCorrDesc, ");
+		WLog_INFO(TAG, "HasNewCorrDesc, ");
+
 	if (extFlags.ClientCorrCheck)
-		printf("ClientCorrCheck, ");
+		WLog_INFO(TAG, "ClientCorrCheck, ");
+
 	if (extFlags.ServerCorrCheck)
-		printf("ServerCorrCheck, ");
+		WLog_INFO(TAG, "ServerCorrCheck, ");
+
 	if (extFlags.HasNotify)
-		printf("HasNotify, ");
+		WLog_INFO(TAG, "HasNotify, ");
+
 	if (extFlags.HasNotify2)
-		printf("HasNotify2, ");
+		WLog_INFO(TAG, "HasNotify2, ");
 }
 
 CLIENT_CALL_RETURN NdrClientCall(PMIDL_STUB_DESC pStubDescriptor, PFORMAT_STRING pFormat, void** stackTop, void** fpuStack)
@@ -237,101 +253,88 @@ CLIENT_CALL_RETURN NdrClientCall(PMIDL_STUB_DESC pStubDescriptor, PFORMAT_STRING
 	MIDL_STUB_MESSAGE stubMsg;
 	INTERPRETER_FLAGS flags;
 	INTERPRETER_OPT_FLAGS optFlags;
-	INTERPRETER_OPT_FLAGS2 extFlags;
 	NDR_PROC_HEADER* procHeader;
 	NDR_OI2_PROC_HEADER* oi2ProcHeader;
 	CLIENT_CALL_RETURN client_call_return;
-
 	procNum = stackSize = numberParams = 0;
 	procHeader = (NDR_PROC_HEADER*) &pFormat[0];
-
 	client_call_return.Pointer = NULL;
-
 	handleType = procHeader->HandleType;
 	flags = procHeader->OldOiFlags;
 	procNum = procHeader->ProcNum;
 	stackSize = procHeader->StackSize;
 	pFormat += sizeof(NDR_PROC_HEADER);
-
 	/* The Header: http://msdn.microsoft.com/en-us/library/windows/desktop/aa378707/ */
 	/* Procedure Header Descriptor: http://msdn.microsoft.com/en-us/library/windows/desktop/aa374387/ */
 	/* Handles: http://msdn.microsoft.com/en-us/library/windows/desktop/aa373932/ */
-
-	printf("Oi Header: HandleType: 0x%02X OiFlags: 0x%02X ProcNum: %d StackSize: 0x%04X\n",
-			handleType, *((unsigned char*) &flags),
-			(unsigned short) procNum, (unsigned short) stackSize);
+	WLog_DBG(TAG, "Oi Header: HandleType: 0x%02X OiFlags: 0x%02X ProcNum: %hu StackSize: 0x%04X",
+			 handleType, *((unsigned char*) &flags),
+			 procNum, stackSize);
 
 	if (handleType > 0)
 	{
 		/* implicit handle */
-		printf("Implicit Handle\n");
+		WLog_INFO(TAG, "Implicit Handle");
 		oi2ProcHeader = (NDR_OI2_PROC_HEADER*) &pFormat[0];
 		pFormat += sizeof(NDR_OI2_PROC_HEADER);
 	}
 	else
 	{
 		/* explicit handle */
-		printf("Explicit Handle\n");
+		WLog_INFO(TAG, "Explicit Handle");
 		oi2ProcHeader = (NDR_OI2_PROC_HEADER*) &pFormat[6];
 		pFormat += sizeof(NDR_OI2_PROC_HEADER) + 6;
 	}
 
 	optFlags = oi2ProcHeader->Oi2Flags;
 	numberParams = oi2ProcHeader->NumberParams;
-
-	printf("Oi2 Header: Oi2Flags: 0x%02X, NumberParams: %d ClientBufferSize: %d ServerBufferSize: %d\n",
-			*((unsigned char*) &optFlags),
-			(unsigned char) numberParams,
-			oi2ProcHeader->ClientBufferSize,
-			oi2ProcHeader->ServerBufferSize);
-
-	printf("Oi2Flags: ");
+	WLog_DBG(TAG, "Oi2 Header: Oi2Flags: 0x%02X, NumberParams: %u ClientBufferSize: %hu ServerBufferSize: %hu",
+			 *((unsigned char*) &optFlags),
+			 numberParams,
+			 oi2ProcHeader->ClientBufferSize,
+			 oi2ProcHeader->ServerBufferSize);
+	WLog_INFO(TAG, "Oi2Flags: ");
 	NdrPrintOptFlags(optFlags);
-	printf("\n");
-
 	NdrClientInitializeNew(&rpcMsg, &stubMsg, pStubDescriptor, procNum);
 
 	if (optFlags.HasExtensions)
 	{
+		INTERPRETER_OPT_FLAGS2 extFlags;
 		NDR_PROC_HEADER_EXTS* extensions = (NDR_PROC_HEADER_EXTS*) pFormat;
-
 		pFormat += extensions->Size;
 		extFlags = extensions->Flags2;
-
-		printf("Extensions: Size: %d, flags2: 0x%02X\n",
-				extensions->Size, *((unsigned char*) &extensions->Flags2));
-
+		WLog_DBG(TAG, "Extensions: Size: %hhu, flags2: 0x%02X",
+				 extensions->Size, *((unsigned char*) &extensions->Flags2));
 #ifdef __x86_64__
+
 		if (extensions->Size > sizeof(*extensions) && fpuStack)
 		{
 			int i;
-			unsigned short fpuMask = *(unsigned short*) (extensions + 1);
+			unsigned short fpuMask = *(unsigned short*)(extensions + 1);
 
 			for (i = 0; i < 4; i++, fpuMask >>= 2)
 			{
 				switch (fpuMask & 3)
 				{
-					case 1: *(float*) &stackTop[i] = *(float*) &fpuStack[i];
+					case 1:
+						*(float*) &stackTop[i] = *(float*) &fpuStack[i];
 						break;
 
-					case 2: *(double*) &stackTop[i] = *(double*) &fpuStack[i];
+					case 2:
+						*(double*) &stackTop[i] = *(double*) &fpuStack[i];
 						break;
 				}
 			}
 		}
+
 #endif
+		WLog_INFO(TAG, "ExtFlags: ");
+		NdrPrintExtFlags(extFlags);
 	}
 
 	stubMsg.StackTop = (unsigned char*) stackTop;
-
-	printf("ExtFlags: ");
-	NdrPrintExtFlags(extFlags);
-	printf("\n");
-
 	NdrProcessParams(&stubMsg, pFormat, NDR_PHASE_SIZE, fpuStack, numberParams);
-
-	printf("stubMsg BufferLength: %d\n", (int) stubMsg.BufferLength);
-
+	WLog_DBG(TAG, "stubMsg BufferLength: %"PRIu32"", stubMsg.BufferLength);
 	return client_call_return;
 }
 
@@ -339,11 +342,9 @@ CLIENT_CALL_RETURN NdrClientCall2(PMIDL_STUB_DESC pStubDescriptor, PFORMAT_STRIN
 {
 	va_list args;
 	CLIENT_CALL_RETURN client_call_return;
-
 	va_start(args, pFormat);
 	client_call_return = NdrClientCall(pStubDescriptor, pFormat, va_arg(args, void**), NULL);
 	va_end(args);
-
 	return client_call_return;
 }
 

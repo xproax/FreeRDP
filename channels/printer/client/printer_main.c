@@ -3,6 +3,10 @@
  * Print Virtual Channel
  *
  * Copyright 2010-2011 Vic Lee
+ * Copyright 2015 Thincast Technologies GmbH
+ * Copyright 2015 DI (FH) Martin Haimberger <martin.haimberger@thincast.com>
+ * Copyright 2016 Armin Novak <armin.novak@gmail.com>
+ * Copyright 2016 David PHAM-VAN <d.phamvan@inuvika.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,16 +30,15 @@
 #include <string.h>
 
 #include <winpr/crt.h>
+#include <winpr/string.h>
 #include <winpr/synch.h>
 #include <winpr/thread.h>
+#include <winpr/stream.h>
 #include <winpr/interlocked.h>
 
-#include <freerdp/utils/stream.h>
-#include <freerdp/utils/unicode.h>
-#include <freerdp/utils/memory.h>
-#include <freerdp/utils/thread.h>
-#include <freerdp/utils/svc_plugin.h>
 #include <freerdp/channels/rdpdr.h>
+
+#include "../printer.h"
 
 #ifdef WITH_CUPS
 #include "printer_cups.h"
@@ -43,9 +46,13 @@
 
 #include "printer_main.h"
 
-#ifdef WIN32
+#if defined(_WIN32) && !defined(_UWP)
 #include "printer_win.h"
 #endif
+
+#include <freerdp/channels/log.h>
+
+#define TAG CHANNELS_TAG("printer.client")
 
 typedef struct _PRINTER_DEVICE PRINTER_DEVICE;
 struct _PRINTER_DEVICE
@@ -54,295 +61,462 @@ struct _PRINTER_DEVICE
 
 	rdpPrinter* printer;
 
-	PSLIST_HEADER pIrpList;
-	freerdp_thread* thread;
+	WINPR_PSLIST_HEADER pIrpList;
+
+	HANDLE event;
+	HANDLE stopEvent;
+
+	HANDLE thread;
+	rdpContext* rdpcontext;
 };
 
-static void printer_process_irp_create(PRINTER_DEVICE* printer_dev, IRP* irp)
+/**
+ * Function description
+ *
+ * @return 0 on success, otherwise a Win32 error code
+ */
+static UINT printer_process_irp_create(PRINTER_DEVICE* printer_dev, IRP* irp)
 {
 	rdpPrintJob* printjob = NULL;
 
-	if (printer_dev->printer != NULL)
-		printjob = printer_dev->printer->CreatePrintJob(printer_dev->printer, irp->devman->id_sequence++);
+	if (printer_dev->printer)
+		printjob = printer_dev->printer->CreatePrintJob(printer_dev->printer,
+		           irp->devman->id_sequence++);
 
-	if (printjob != NULL)
+	if (printjob)
 	{
-		stream_write_UINT32(irp->output, printjob->id); /* FileId */
-
-		DEBUG_SVC("printjob id: %d", printjob->id);
+		Stream_Write_UINT32(irp->output, printjob->id); /* FileId */
 	}
 	else
 	{
-		stream_write_UINT32(irp->output, 0); /* FileId */
+		Stream_Write_UINT32(irp->output, 0); /* FileId */
 		irp->IoStatus = STATUS_PRINT_QUEUE_FULL;
-
-		DEBUG_WARN("error creating print job.");
 	}
 
-	irp->Complete(irp);
+	return irp->Complete(irp);
 }
 
-static void printer_process_irp_close(PRINTER_DEVICE* printer_dev, IRP* irp)
+/**
+ * Function description
+ *
+ * @return 0 on success, otherwise a Win32 error code
+ */
+static UINT printer_process_irp_close(PRINTER_DEVICE* printer_dev, IRP* irp)
 {
 	rdpPrintJob* printjob = NULL;
 
-	if (printer_dev->printer != NULL)
-		printjob = printer_dev->printer->FindPrintJob(printer_dev->printer, irp->FileId);
+	if (printer_dev->printer)
+		printjob = printer_dev->printer->FindPrintJob(printer_dev->printer,
+		           irp->FileId);
 
-	if (printjob == NULL)
+	if (!printjob)
 	{
 		irp->IoStatus = STATUS_UNSUCCESSFUL;
-
-		DEBUG_WARN("printjob id %d not found.", irp->FileId);
 	}
 	else
 	{
 		printjob->Close(printjob);
-
-		DEBUG_SVC("printjob id %d closed.", irp->FileId);
 	}
 
-	stream_write_zero(irp->output, 4); /* Padding(4) */
-
-	irp->Complete(irp);
+	Stream_Zero(irp->output, 4); /* Padding(4) */
+	return irp->Complete(irp);
 }
 
-static void printer_process_irp_write(PRINTER_DEVICE* printer_dev, IRP* irp)
+/**
+ * Function description
+ *
+ * @return 0 on success, otherwise a Win32 error code
+ */
+static UINT printer_process_irp_write(PRINTER_DEVICE* printer_dev, IRP* irp)
 {
 	UINT32 Length;
 	UINT64 Offset;
 	rdpPrintJob* printjob = NULL;
+	UINT error = CHANNEL_RC_OK;
+	Stream_Read_UINT32(irp->input, Length);
+	Stream_Read_UINT64(irp->input, Offset);
+	Stream_Seek(irp->input, 20); /* Padding */
 
-	stream_read_UINT32(irp->input, Length);
-	stream_read_UINT64(irp->input, Offset);
-	stream_seek(irp->input, 20); /* Padding */
+	if (printer_dev->printer)
+		printjob = printer_dev->printer->FindPrintJob(printer_dev->printer,
+		           irp->FileId);
 
-	if (printer_dev->printer != NULL)
-		printjob = printer_dev->printer->FindPrintJob(printer_dev->printer, irp->FileId);
-
-	if (printjob == NULL)
+	if (!printjob)
 	{
 		irp->IoStatus = STATUS_UNSUCCESSFUL;
 		Length = 0;
-
-		DEBUG_WARN("printjob id %d not found.", irp->FileId);
 	}
 	else
 	{
-		printjob->Write(printjob, stream_get_tail(irp->input), Length);
-
-		DEBUG_SVC("printjob id %d written %d bytes.", irp->FileId, Length);
+		error = printjob->Write(printjob, Stream_Pointer(irp->input), Length);
 	}
 
-	stream_write_UINT32(irp->output, Length);
-	stream_write_BYTE(irp->output, 0); /* Padding */
+	if (error)
+	{
+		WLog_ERR(TAG, "printjob->Write failed with error %"PRIu32"!", error);
+		return error;
+	}
 
-	irp->Complete(irp);
+	Stream_Write_UINT32(irp->output, Length);
+	Stream_Write_UINT8(irp->output, 0); /* Padding */
+	return irp->Complete(irp);
 }
 
-static void printer_process_irp(PRINTER_DEVICE* printer_dev, IRP* irp)
+/**
+ * Function description
+ *
+ * @return 0 on success, otherwise a Win32 error code
+ */
+static UINT printer_process_irp_device_control(PRINTER_DEVICE* printer_dev,
+        IRP* irp)
 {
+	Stream_Write_UINT32(irp->output, 0); /* OutputBufferLength */
+	return irp->Complete(irp);
+}
+
+/**
+ * Function description
+ *
+ * @return 0 on success, otherwise a Win32 error code
+ */
+static UINT printer_process_irp(PRINTER_DEVICE* printer_dev, IRP* irp)
+{
+	UINT error;
+
 	switch (irp->MajorFunction)
 	{
 		case IRP_MJ_CREATE:
-			printer_process_irp_create(printer_dev, irp);
+			if ((error = printer_process_irp_create(printer_dev, irp)))
+			{
+				WLog_ERR(TAG, "printer_process_irp_create failed with error %"PRIu32"!", error);
+				return error;
+			}
+
 			break;
 
 		case IRP_MJ_CLOSE:
-			printer_process_irp_close(printer_dev, irp);
+			if ((error = printer_process_irp_close(printer_dev, irp)))
+			{
+				WLog_ERR(TAG, "printer_process_irp_close failed with error %"PRIu32"!", error);
+				return error;
+			}
+
 			break;
 
 		case IRP_MJ_WRITE:
-			printer_process_irp_write(printer_dev, irp);
+			if ((error = printer_process_irp_write(printer_dev, irp)))
+			{
+				WLog_ERR(TAG, "printer_process_irp_write failed with error %"PRIu32"!", error);
+				return error;
+			}
+
+			break;
+
+		case IRP_MJ_DEVICE_CONTROL:
+			if ((error = printer_process_irp_device_control(printer_dev, irp)))
+			{
+				WLog_ERR(TAG, "printer_process_irp_device_control failed with error %"PRIu32"!",
+				         error);
+				return error;
+			}
+
 			break;
 
 		default:
-			DEBUG_WARN("MajorFunction 0x%X not supported", irp->MajorFunction);
 			irp->IoStatus = STATUS_NOT_SUPPORTED;
-			irp->Complete(irp);
+			return irp->Complete(irp);
 			break;
 	}
-}
 
-static void printer_process_irp_list(PRINTER_DEVICE* printer_dev)
-{
-	IRP* irp;
-
-	while (1)
-	{
-		if (freerdp_thread_is_stopped(printer_dev->thread))
-			break;
-
-		irp = (IRP*) InterlockedPopEntrySList(printer_dev->pIrpList);
-
-		if (irp == NULL)
-			break;
-
-		printer_process_irp(printer_dev, irp);
-	}
+	return CHANNEL_RC_OK;
 }
 
 static void* printer_thread_func(void* arg)
 {
-	PRINTER_DEVICE* printer_dev = (PRINTER_DEVICE*)arg;
+	IRP* irp;
+	PRINTER_DEVICE* printer_dev = (PRINTER_DEVICE*) arg;
+	HANDLE obj[] = {printer_dev->event, printer_dev->stopEvent};
+	UINT error = CHANNEL_RC_OK;
 
 	while (1)
 	{
-		freerdp_thread_wait(printer_dev->thread);
+		DWORD rc = WaitForMultipleObjects(2, obj, FALSE, INFINITE);
 
-		if (freerdp_thread_is_stopped(printer_dev->thread))
+		if (rc == WAIT_FAILED)
+		{
+			error = GetLastError();
+			WLog_ERR(TAG, "WaitForMultipleObjects failed with error %"PRIu32"!", error);
 			break;
+		}
 
-		freerdp_thread_reset(printer_dev->thread);
-		printer_process_irp_list(printer_dev);
+		if (rc == WAIT_OBJECT_0 + 1)
+			break;
+		else if (rc != WAIT_OBJECT_0)
+			continue;
+
+		ResetEvent(printer_dev->event);
+		irp = (IRP*) InterlockedPopEntrySList(printer_dev->pIrpList);
+
+		if (irp == NULL)
+		{
+			WLog_ERR(TAG, "InterlockedPopEntrySList failed!");
+			error = ERROR_INTERNAL_ERROR;
+			break;
+		}
+
+		if ((error = printer_process_irp(printer_dev, irp)))
+		{
+			WLog_ERR(TAG, "printer_process_irp failed with error %"PRIu32"!", error);
+			break;
+		}
 	}
 
-	freerdp_thread_quit(printer_dev->thread);
+	if (error && printer_dev->rdpcontext)
+		setChannelError(printer_dev->rdpcontext, error,
+		                "printer_thread_func reported an error");
 
+	ExitThread((DWORD) error);
 	return NULL;
 }
 
-static void printer_irp_request(DEVICE* device, IRP* irp)
+/**
+ * Function description
+ *
+ * @return 0 on success, otherwise a Win32 error code
+ */
+static UINT printer_irp_request(DEVICE* device, IRP* irp)
 {
 	PRINTER_DEVICE* printer_dev = (PRINTER_DEVICE*) device;
-
 	InterlockedPushEntrySList(printer_dev->pIrpList, &(irp->ItemEntry));
-
-	freerdp_thread_signal(printer_dev->thread);
+	SetEvent(printer_dev->event);
+	return CHANNEL_RC_OK;
 }
 
-static void printer_free(DEVICE* device)
+/**
+ * Function description
+ *
+ * @return 0 on success, otherwise a Win32 error code
+ */
+static UINT printer_free(DEVICE* device)
 {
 	IRP* irp;
 	PRINTER_DEVICE* printer_dev = (PRINTER_DEVICE*) device;
+	UINT error;
+	SetEvent(printer_dev->stopEvent);
 
-	freerdp_thread_stop(printer_dev->thread);
-	freerdp_thread_free(printer_dev->thread);
+	if (WaitForSingleObject(printer_dev->thread, INFINITE) == WAIT_FAILED)
+	{
+		error = GetLastError();
+		WLog_ERR(TAG, "WaitForSingleObject failed with error %"PRIu32"", error);
+		return error;
+	}
 
 	while ((irp = (IRP*) InterlockedPopEntrySList(printer_dev->pIrpList)) != NULL)
 		irp->Discard(irp);
 
+	CloseHandle(printer_dev->thread);
+	CloseHandle(printer_dev->stopEvent);
+	CloseHandle(printer_dev->event);
 	_aligned_free(printer_dev->pIrpList);
 
 	if (printer_dev->printer)
 		printer_dev->printer->Free(printer_dev->printer);
 
 	free(printer_dev->device.name);
-
+	Stream_Free(printer_dev->device.data, TRUE);
 	free(printer_dev);
+	return CHANNEL_RC_OK;
 }
 
-void printer_register(PDEVICE_SERVICE_ENTRY_POINTS pEntryPoints, rdpPrinter* printer)
+/**
+ * Function description
+ *
+ * @return 0 on success, otherwise a Win32 error code
+ */
+UINT printer_register(PDEVICE_SERVICE_ENTRY_POINTS pEntryPoints,
+                      rdpPrinter* printer)
 {
 	char* port;
 	UINT32 Flags;
 	int DriverNameLen;
-	WCHAR* DriverName;
+	WCHAR* DriverName = NULL;
 	int PrintNameLen;
-	WCHAR* PrintName;
+	WCHAR* PrintName = NULL;
 	UINT32 CachedFieldsLen;
 	BYTE* CachedPrinterConfigData;
 	PRINTER_DEVICE* printer_dev;
-
+	UINT error;
 	port = malloc(10);
-	snprintf(port, 10, "PRN%d", printer->id);
 
-	printer_dev = xnew(PRINTER_DEVICE);
+	if (!port)
+	{
+		WLog_ERR(TAG, "malloc failed!");
+		return CHANNEL_RC_NO_MEMORY;
+	}
+
+	sprintf_s(port, 10, "PRN%d", printer->id);
+	printer_dev = (PRINTER_DEVICE*) calloc(1, sizeof(PRINTER_DEVICE));
+
+	if (!printer_dev)
+	{
+		WLog_ERR(TAG, "calloc failed!");
+		free(port);
+		return CHANNEL_RC_NO_MEMORY;
+	}
 
 	printer_dev->device.type = RDPDR_DTYP_PRINT;
 	printer_dev->device.name = port;
 	printer_dev->device.IRPRequest = printer_irp_request;
 	printer_dev->device.Free = printer_free;
-
+	printer_dev->rdpcontext = pEntryPoints->rdpcontext;
 	printer_dev->printer = printer;
-
 	CachedFieldsLen = 0;
 	CachedPrinterConfigData = NULL;
-
-	DEBUG_SVC("Printer %s registered", printer->name);
-
 	Flags = 0;
 
 	if (printer->is_default)
 		Flags |= RDPDR_PRINTER_ANNOUNCE_FLAG_DEFAULTPRINTER;
 
-	DriverNameLen = freerdp_AsciiToUnicodeAlloc(printer->driver, &DriverName, 0) * 2;
-	PrintNameLen = freerdp_AsciiToUnicodeAlloc(printer->name, &PrintName, 0) * 2;
+	DriverNameLen = ConvertToUnicode(CP_UTF8, 0, printer->driver, -1, &DriverName,
+	                                 0) * 2;
+	PrintNameLen = ConvertToUnicode(CP_UTF8, 0, printer->name, -1, &PrintName,
+	                                0) * 2;
+	printer_dev->device.data = Stream_New(NULL,
+	                                      28 + DriverNameLen + PrintNameLen + CachedFieldsLen);
 
-	printer_dev->device.data = stream_new(28 + DriverNameLen + PrintNameLen + CachedFieldsLen);
+	if (!printer_dev->device.data)
+	{
+		WLog_ERR(TAG, "calloc failed!");
+		error = CHANNEL_RC_NO_MEMORY;
+		free(DriverName);
+		free(PrintName);
+		goto error_out;
+	}
 
-	stream_write_UINT32(printer_dev->device.data, Flags);
-	stream_write_UINT32(printer_dev->device.data, 0); /* CodePage, reserved */
-	stream_write_UINT32(printer_dev->device.data, 0); /* PnPNameLen */
-	stream_write_UINT32(printer_dev->device.data, DriverNameLen + 2);
-	stream_write_UINT32(printer_dev->device.data, PrintNameLen + 2);
-	stream_write_UINT32(printer_dev->device.data, CachedFieldsLen);
-	stream_write(printer_dev->device.data, DriverName, DriverNameLen);
-	stream_write_UINT16(printer_dev->device.data, 0);
-	stream_write(printer_dev->device.data, PrintName, PrintNameLen);
-	stream_write_UINT16(printer_dev->device.data, 0);
+	Stream_Write_UINT32(printer_dev->device.data, Flags);
+	Stream_Write_UINT32(printer_dev->device.data, 0); /* CodePage, reserved */
+	Stream_Write_UINT32(printer_dev->device.data, 0); /* PnPNameLen */
+	Stream_Write_UINT32(printer_dev->device.data, DriverNameLen + 2);
+	Stream_Write_UINT32(printer_dev->device.data, PrintNameLen + 2);
+	Stream_Write_UINT32(printer_dev->device.data, CachedFieldsLen);
+	Stream_Write(printer_dev->device.data, DriverName, DriverNameLen);
+	Stream_Write_UINT16(printer_dev->device.data, 0);
+	Stream_Write(printer_dev->device.data, PrintName, PrintNameLen);
+	Stream_Write_UINT16(printer_dev->device.data, 0);
 
 	if (CachedFieldsLen > 0)
 	{
-		stream_write(printer_dev->device.data, CachedPrinterConfigData, CachedFieldsLen);
+		Stream_Write(printer_dev->device.data, CachedPrinterConfigData,
+		             CachedFieldsLen);
 	}
 
 	free(DriverName);
 	free(PrintName);
+	printer_dev->pIrpList = (WINPR_PSLIST_HEADER) _aligned_malloc(sizeof(
+	                            WINPR_SLIST_HEADER), MEMORY_ALLOCATION_ALIGNMENT);
 
-	printer_dev->pIrpList = (PSLIST_HEADER) _aligned_malloc(sizeof(SLIST_HEADER), MEMORY_ALLOCATION_ALIGNMENT);
+	if (!printer_dev->pIrpList)
+	{
+		WLog_ERR(TAG, "_aligned_malloc failed!");
+		error = CHANNEL_RC_NO_MEMORY;
+		goto error_out;
+	}
+
 	InitializeSListHead(printer_dev->pIrpList);
 
-	printer_dev->thread = freerdp_thread_new();
+	if (!(printer_dev->event = CreateEvent(NULL, TRUE, FALSE, NULL)))
+	{
+		WLog_ERR(TAG, "CreateEvent failed!");
+		error = ERROR_INTERNAL_ERROR;
+		goto error_out;
+	}
 
-	pEntryPoints->RegisterDevice(pEntryPoints->devman, (DEVICE*) printer_dev);
+	if (!(printer_dev->stopEvent = CreateEvent(NULL, TRUE, FALSE, NULL)))
+	{
+		WLog_ERR(TAG, "CreateEvent failed!");
+		error = ERROR_INTERNAL_ERROR;
+		goto error_out;
+	}
 
-	freerdp_thread_start(printer_dev->thread, printer_thread_func, printer_dev);
+	if ((error = pEntryPoints->RegisterDevice(pEntryPoints->devman,
+	             (DEVICE*) printer_dev)))
+	{
+		WLog_ERR(TAG, "RegisterDevice failed with error %"PRIu32"!", error);
+		goto error_out;
+	}
+
+	if (!(printer_dev->thread = CreateThread(NULL, 0,
+	                            (LPTHREAD_START_ROUTINE) printer_thread_func, (void*) printer_dev, 0, NULL)))
+	{
+		WLog_ERR(TAG, "CreateThread failed!");
+		error = ERROR_INTERNAL_ERROR;
+		goto error_out;
+	}
+
+	return CHANNEL_RC_OK;
+error_out:
+	CloseHandle(printer_dev->stopEvent);
+	CloseHandle(printer_dev->event);
+	_aligned_free(printer_dev->pIrpList);
+	Stream_Free(printer_dev->device.data, TRUE);
+	free(printer_dev);
+	free(port);
+	return error;
 }
 
-#ifdef STATIC_CHANNELS
+#ifdef BUILTIN_CHANNELS
 #define DeviceServiceEntry	printer_DeviceServiceEntry
+#else
+#define DeviceServiceEntry	FREERDP_API DeviceServiceEntry
 #endif
 
-int DeviceServiceEntry(PDEVICE_SERVICE_ENTRY_POINTS pEntryPoints)
+/**
+ * Function description
+ *
+ * @return 0 on success, otherwise a Win32 error code
+ */
+UINT DeviceServiceEntry(PDEVICE_SERVICE_ENTRY_POINTS pEntryPoints)
 {
 	int i;
 	char* name;
 	char* driver_name;
 	rdpPrinter* printer;
 	rdpPrinter** printers;
+	RDPDR_PRINTER* device;
 	rdpPrinterDriver* driver = NULL;
-
+	UINT error;
 #ifdef WITH_CUPS
 	driver = printer_cups_get_driver();
 #endif
-#ifdef WIN32
+#if defined(_WIN32) && !defined(_UWP)
 	driver = printer_win_get_driver();
 #endif
 
-	if (driver == NULL)
+	if (!driver)
 	{
-		DEBUG_WARN("no driver");
-		return 1;
+		WLog_ERR(TAG, "Could not get a printer driver!");
+		return CHANNEL_RC_INITIALIZATION_ERROR;
 	}
 
-	name = (char*) pEntryPoints->plugin_data->data[1];
-	driver_name = (char*) pEntryPoints->plugin_data->data[2];
+	device = (RDPDR_PRINTER*) pEntryPoints->device;
+	name = device->Name;
+	driver_name = device->DriverName;
 
 	if (name && name[0])
 	{
-		printer = driver->GetPrinter(driver, name);
+		printer = driver->GetPrinter(driver, name, driver_name);
 
-		if (printer == NULL)
+		if (!printer)
 		{
-			DEBUG_WARN("printer %s not found.", name);
-			return 1;
+			WLog_ERR(TAG, "Could not get printer %s!", name);
+			return CHANNEL_RC_INITIALIZATION_ERROR;
 		}
 
-		if (driver_name && driver_name[0])
-			printer->driver = driver_name;
-
-		printer_register(pEntryPoints, printer);
+		if ((error = printer_register(pEntryPoints, printer)))
+		{
+			WLog_ERR(TAG, "printer_register failed with error %"PRIu32"!", error);
+			return error;
+		}
 	}
 	else
 	{
@@ -351,11 +525,17 @@ int DeviceServiceEntry(PDEVICE_SERVICE_ENTRY_POINTS pEntryPoints)
 		for (i = 0; printers[i]; i++)
 		{
 			printer = printers[i];
-			printer_register(pEntryPoints, printer);
+
+			if ((error = printer_register(pEntryPoints, printer)))
+			{
+				WLog_ERR(TAG, "printer_register failed with error %"PRIu32"!", error);
+				free(printers);
+				return error;
+			}
 		}
 
 		free(printers);
 	}
 
-	return 0;
+	return CHANNEL_RC_OK;
 }

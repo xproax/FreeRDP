@@ -20,21 +20,17 @@
 #ifndef __XF_CLIPRDR_H
 #define __XF_CLIPRDR_H
 
+#include "xf_client.h"
 #include "xfreerdp.h"
 
-void xf_cliprdr_init(xfInfo* xfi, rdpChannels* chanman);
-void xf_cliprdr_uninit(xfInfo* xfi);
-void xf_process_cliprdr_event(xfInfo* xfi, RDP_EVENT* event);
-BOOL xf_cliprdr_process_selection_notify(xfInfo* xfi, XEvent* xevent);
-BOOL xf_cliprdr_process_selection_request(xfInfo* xfi, XEvent* xevent);
-BOOL xf_cliprdr_process_selection_clear(xfInfo* xfi, XEvent* xevent);
-BOOL xf_cliprdr_process_property_notify(xfInfo* xfi, XEvent* xevent);
-void xf_cliprdr_check_owner(xfInfo* xfi);
+#include <freerdp/client/cliprdr.h>
 
-#ifdef WITH_DEBUG_X11_CLIPRDR
-#define DEBUG_X11_CLIPRDR(fmt, ...) DEBUG_CLASS(X11_CLIPRDR, fmt, ## __VA_ARGS__)
-#else
-#define DEBUG_X11_CLIPRDR(fmt, ...) DEBUG_NULL(fmt, ## __VA_ARGS__)
-#endif
+xfClipboard* xf_clipboard_new(xfContext* xfc);
+void xf_clipboard_free(xfClipboard* clipboard);
+
+void xf_cliprdr_init(xfContext* xfc, CliprdrClientContext* cliprdr);
+void xf_cliprdr_uninit(xfContext* xfc, CliprdrClientContext* cliprdr);
+
+void xf_cliprdr_handle_xevent(xfContext* xfc, XEvent* event);
 
 #endif /* __XF_CLIPRDR_H */

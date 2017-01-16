@@ -22,8 +22,13 @@
 #endif
 
 #include <stdio.h>
+#include <winpr/print.h>
+
+#include <freerdp/log.h>
 
 #include "tpdu.h"
+
+#define TAG FREERDP_TAG("core")
 
 /**
  * TPDUs are defined in:
@@ -66,28 +71,28 @@
  * @return TPDU length indicator (LI)
  */
 
-BYTE
-tpdu_read_header(STREAM* s, BYTE* code)
+BOOL tpdu_read_header(wStream* s, BYTE* code, BYTE* li)
 {
-	BYTE li;
+	if (Stream_GetRemainingLength(s) < 3)
+		return FALSE;
 
-	stream_read_BYTE(s, li); /* LI */
-	stream_read_BYTE(s, *code); /* Code */
+	Stream_Read_UINT8(s, *li); /* LI */
+	Stream_Read_UINT8(s, *code); /* Code */
 
 	if (*code == X224_TPDU_DATA)
 	{
 		/* EOT (1 byte) */
-		stream_seek(s, 1);
+		Stream_Seek(s, 1);
 	}
 	else
 	{
 		/* DST-REF (2 bytes) */
 		/* SRC-REF (2 bytes) */
 		/* Class 0 (1 byte) */
-		stream_seek(s, 5);
+		return Stream_SafeSeek(s, 5);
 	}
 
-	return li;
+	return TRUE;
 }
 
 /**
@@ -97,21 +102,20 @@ tpdu_read_header(STREAM* s, BYTE* code)
  * @param code TPDU code
  */
 
-void
-tpdu_write_header(STREAM* s, UINT16 length, BYTE code)
+void tpdu_write_header(wStream* s, UINT16 length, BYTE code)
 {
-	stream_write_BYTE(s, length); /* LI */
-	stream_write_BYTE(s, code); /* code */
+	Stream_Write_UINT8(s, length); /* LI */
+	Stream_Write_UINT8(s, code); /* code */
 
 	if (code == X224_TPDU_DATA)
 	{
-		stream_write_BYTE(s, 0x80); /* EOT */
+		Stream_Write_UINT8(s, 0x80); /* EOT */
 	}
 	else
 	{
-		stream_write_UINT16(s, 0); /* DST-REF */
-		stream_write_UINT16(s, 0); /* SRC-REF */
-		stream_write_BYTE(s, 0); /* Class 0 */
+		Stream_Write_UINT16(s, 0); /* DST-REF */
+		Stream_Write_UINT16(s, 0); /* SRC-REF */
+		Stream_Write_UINT8(s, 0); /* Class 0 */
 	}
 }
 
@@ -121,20 +125,20 @@ tpdu_write_header(STREAM* s, UINT16 length, BYTE code)
  * @return length indicator (LI)
  */
 
-BYTE tpdu_read_connection_request(STREAM* s)
+BOOL tpdu_read_connection_request(wStream* s, BYTE* li)
 {
-	BYTE li;
 	BYTE code;
 
-	li = tpdu_read_header(s, &code);
+	if (!tpdu_read_header(s, &code, li))
+		return FALSE;
 
 	if (code != X224_TPDU_CONNECTION_REQUEST)
 	{
-		printf("Error: expected X224_TPDU_CONNECTION_REQUEST\n");
-		return 0;
+		WLog_ERR(TAG,  "Error: expected X224_TPDU_CONNECTION_REQUEST");
+		return FALSE;
 	}
 
-	return li;
+	return TRUE;
 }
 
 /**
@@ -143,8 +147,7 @@ BYTE tpdu_read_connection_request(STREAM* s)
  * @param length TPDU length
  */
 
-void
-tpdu_write_connection_request(STREAM* s, UINT16 length)
+void tpdu_write_connection_request(wStream* s, UINT16 length)
 {
 	tpdu_write_header(s, length, X224_TPDU_CONNECTION_REQUEST);
 }
@@ -155,21 +158,33 @@ tpdu_write_connection_request(STREAM* s, UINT16 length)
  * @return length indicator (LI)
  */
 
-BYTE
-tpdu_read_connection_confirm(STREAM* s)
+BOOL tpdu_read_connection_confirm(wStream* s, BYTE* li)
 {
-	BYTE li;
 	BYTE code;
+	int position;
+	int bytes_read = 0;
 
-	li = tpdu_read_header(s, &code);
+	/* save the position to determine the number of bytes read */
+	position = Stream_GetPosition(s);
+
+	if (!tpdu_read_header(s, &code, li))
+		return FALSE;
 
 	if (code != X224_TPDU_CONNECTION_CONFIRM)
 	{
-		printf("Error: expected X224_TPDU_CONNECTION_CONFIRM\n");
-		return 0;
+		WLog_ERR(TAG,  "Error: expected X224_TPDU_CONNECTION_CONFIRM");
+		return FALSE;
 	}
+	/*
+	 * To ensure that there are enough bytes remaining for processing
+	 * check against the length indicator (li). Already read bytes need
+	 * to be taken into account.
+	 * The -1 is because li was read but isn't included in the TPDU size.
+	 * For reference see ITU-T Rec. X.224 - 13.2.1
+	 */
+	bytes_read = (Stream_GetPosition(s) - position) - 1;
 
-	return li;
+	return (Stream_GetRemainingLength(s) >= (size_t) (*li - bytes_read));
 }
 
 /**
@@ -178,8 +193,7 @@ tpdu_read_connection_confirm(STREAM* s)
  * @param length TPDU length
  */
 
-void
-tpdu_write_connection_confirm(STREAM* s, UINT16 length)
+void tpdu_write_connection_confirm(wStream* s, UINT16 length)
 {
 	tpdu_write_header(s, length, X224_TPDU_CONNECTION_CONFIRM);
 }
@@ -190,8 +204,7 @@ tpdu_write_connection_confirm(STREAM* s, UINT16 length)
  * @param length TPDU length
  */
 
-void
-tpdu_write_disconnect_request(STREAM* s, UINT16 length)
+void tpdu_write_disconnect_request(wStream* s, UINT16 length)
 {
 	tpdu_write_header(s, length, X224_TPDU_DISCONNECT_REQUEST);
 }
@@ -201,8 +214,7 @@ tpdu_write_disconnect_request(STREAM* s, UINT16 length)
  * @param s stream
  */
 
-void
-tpdu_write_data(STREAM* s)
+void tpdu_write_data(wStream* s)
 {
 	tpdu_write_header(s, 2, X224_TPDU_DATA);
 }
@@ -212,16 +224,18 @@ tpdu_write_data(STREAM* s)
  * @param s stream
  */
 
-UINT16
-tpdu_read_data(STREAM* s)
+BOOL tpdu_read_data(wStream* s, UINT16* LI)
 {
 	BYTE code;
-	UINT16 li;
+	BYTE li;
 
-	li = tpdu_read_header(s, &code);
+	if (!tpdu_read_header(s, &code, &li))
+		return FALSE;
 
 	if (code != X224_TPDU_DATA)
-		return 0;
+		return FALSE;
 
-	return li;
+	*LI = li;
+
+	return TRUE;
 }

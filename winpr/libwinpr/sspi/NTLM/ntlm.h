@@ -2,7 +2,7 @@
  * WinPR: Windows Portable Runtime
  * NTLM Security Package
  *
- * Copyright 2011-2012 Marc-Andre Moreau <marcandre.moreau@gmail.com>
+ * Copyright 2011-2014 Marc-Andre Moreau <marcandre.moreau@gmail.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,14 +23,8 @@
 #include <winpr/sspi.h>
 #include <winpr/windows.h>
 
-#include <time.h>
-#include <openssl/des.h>
-#include <openssl/md4.h>
-#include <openssl/md5.h>
-#include <openssl/rc4.h>
-#include <openssl/hmac.h>
-#include <openssl/rand.h>
-#include <openssl/engine.h>
+#include <winpr/nt.h>
+#include <winpr/crypto.h>
 
 #include "../sspi.h"
 
@@ -77,6 +71,7 @@ enum _NTLM_STATE
 	NTLM_STATE_NEGOTIATE,
 	NTLM_STATE_CHALLENGE,
 	NTLM_STATE_AUTHENTICATE,
+	NTLM_STATE_COMPLETION,
 	NTLM_STATE_FINAL
 };
 typedef enum _NTLM_STATE NTLM_STATE;
@@ -91,7 +86,7 @@ enum _NTLM_AV_ID
 	MsvAvDnsTreeName,
 	MsvAvFlags,
 	MsvAvTimestamp,
-	MsvAvRestrictions,
+	MsvAvSingleHost,
 	MsvAvTargetName,
 	MsvChannelBindings
 };
@@ -125,15 +120,15 @@ struct _NTLM_VERSION_INFO
 };
 typedef struct _NTLM_VERSION_INFO NTLM_VERSION_INFO;
 
-struct _NTLM_RESTRICTION_ENCODING
+struct _NTLM_SINGLE_HOST_DATA
 {
 	UINT32 Size;
 	UINT32 Z4;
-	UINT32 IntegrityLevel;
-	UINT32 SubjectIntegrityLevel;
+	UINT32 DataPresent;
+	UINT32 CustomData;
 	BYTE MachineID[32];
 };
-typedef struct _NTLM_RESTRICTION_ENCODING NTLM_RESTRICTION_ENCODING;
+typedef struct _NTLM_SINGLE_HOST_DATA NTLM_SINGLE_HOST_DATA;
 
 struct _NTLM_RESPONSE
 {
@@ -225,21 +220,35 @@ struct _NTLM_CONTEXT
 	NTLM_STATE state;
 	int SendSeqNum;
 	int RecvSeqNum;
+	char* SamFile;
+	BYTE NtlmHash[16];
+	BYTE NtlmV2Hash[16];
 	BYTE MachineID[32];
 	BOOL SendVersionInfo;
 	BOOL confidentiality;
-	RC4_KEY SendRc4Seal;
-	RC4_KEY RecvRc4Seal;
+	WINPR_RC4_CTX* SendRc4Seal;
+	WINPR_RC4_CTX* RecvRc4Seal;
 	BYTE* SendSigningKey;
 	BYTE* RecvSigningKey;
 	BYTE* SendSealingKey;
 	BYTE* RecvSealingKey;
 	UINT32 NegotiateFlags;
+	BOOL UseSamFileDatabase;
 	int LmCompatibilityLevel;
 	int SuppressExtendedProtection;
+	BOOL SendWorkstationName;
 	UNICODE_STRING Workstation;
 	UNICODE_STRING ServicePrincipalName;
-	SEC_WINNT_AUTH_IDENTITY identity;
+	SSPI_CREDENTIALS* credentials;
+	BYTE* ChannelBindingToken;
+	BYTE ChannelBindingsHash[16];
+	SecPkgContext_Bindings Bindings;
+	BOOL SendSingleHostData;
+	BOOL NegotiateKeyExchange;
+	NTLM_SINGLE_HOST_DATA SingleHostData;
+	NTLM_NEGOTIATE_MESSAGE NEGOTIATE_MESSAGE;
+	NTLM_CHALLENGE_MESSAGE CHALLENGE_MESSAGE;
+	NTLM_AUTHENTICATE_MESSAGE AUTHENTICATE_MESSAGE;
 	SecBuffer NegotiateMessage;
 	SecBuffer ChallengeMessage;
 	SecBuffer AuthenticateMessage;
@@ -248,6 +257,7 @@ struct _NTLM_CONTEXT
 	SecBuffer TargetName;
 	SecBuffer NtChallengeResponse;
 	SecBuffer LmChallengeResponse;
+	NTLMv2_RESPONSE NTLMv2Response;
 	BYTE Timestamp[8];
 	BYTE ChallengeTimestamp[8];
 	BYTE ServerChallenge[8];
@@ -262,10 +272,11 @@ struct _NTLM_CONTEXT
 	BYTE ServerSigningKey[16];
 	BYTE ServerSealingKey[16];
 	BYTE MessageIntegrityCheck[16];
+	UINT32 MessageIntegrityCheckOffset;
 };
 typedef struct _NTLM_CONTEXT NTLM_CONTEXT;
 
-NTLM_CONTEXT* ntlm_ContextNew();
+NTLM_CONTEXT* ntlm_ContextNew(void);
 void ntlm_ContextFree(NTLM_CONTEXT* context);
 
 #ifdef WITH_DEBUG_NLA

@@ -25,33 +25,46 @@
 
 #include <freerdp/types.h>
 #include <freerdp/settings.h>
-#include <freerdp/utils/stream.h>
+#include <freerdp/freerdp.h>
+#include <freerdp/api.h>
 
-#ifndef MSG_NOSIGNAL
-#define MSG_NOSIGNAL 0
-#endif
+#include <winpr/crt.h>
+#include <winpr/synch.h>
+#include <winpr/stream.h>
+#include <winpr/winsock.h>
+#include <winpr/crypto.h>
 
-typedef struct rdp_tcp rdpTcp;
+#include <openssl/bio.h>
 
-struct rdp_tcp
-{
-	int sockfd;
-	char ip_address[32];
-	BYTE mac_address[6];
-	struct rdp_settings* settings;
-#ifdef _WIN32
-	WSAEVENT wsa_event;
-#endif
-};
+#include <freerdp/utils/ringbuffer.h>
 
-BOOL tcp_connect(rdpTcp* tcp, const char* hostname, UINT16 port);
-BOOL tcp_disconnect(rdpTcp* tcp);
-int tcp_read(rdpTcp* tcp, BYTE* data, int length);
-int tcp_write(rdpTcp* tcp, BYTE* data, int length);
-BOOL tcp_set_blocking_mode(rdpTcp* tcp, BOOL blocking);
-BOOL tcp_set_keep_alive_mode(rdpTcp* tcp);
+#define BIO_TYPE_TSG			65
+#define BIO_TYPE_SIMPLE			66
+#define BIO_TYPE_BUFFERED		67
 
-rdpTcp* tcp_new(rdpSettings* settings);
-void tcp_free(rdpTcp* tcp);
+#define BIO_C_SET_SOCKET		1101
+#define BIO_C_GET_SOCKET		1102
+#define BIO_C_GET_EVENT			1103
+#define BIO_C_SET_NONBLOCK		1104
+#define BIO_C_READ_BLOCKED		1105
+#define BIO_C_WRITE_BLOCKED		1106
+#define BIO_C_WAIT_READ			1107
+#define BIO_C_WAIT_WRITE		1108
+
+#define BIO_set_socket(b, s, c)		BIO_ctrl(b, BIO_C_SET_SOCKET, c, s);
+#define BIO_get_socket(b, c)		BIO_ctrl(b, BIO_C_GET_SOCKET, 0, (char*) c)
+#define BIO_get_event(b, c)		BIO_ctrl(b, BIO_C_GET_EVENT, 0, (char*) c)
+#define BIO_set_nonblock(b, c)		BIO_ctrl(b, BIO_C_SET_NONBLOCK, c, NULL)
+#define BIO_read_blocked(b)		BIO_ctrl(b, BIO_C_READ_BLOCKED, 0, NULL)
+#define BIO_write_blocked(b)		BIO_ctrl(b, BIO_C_WRITE_BLOCKED, 0, NULL)
+#define BIO_wait_read(b, c)		BIO_ctrl(b, BIO_C_WAIT_READ, c, NULL)
+#define BIO_wait_write(b, c)		BIO_ctrl(b, BIO_C_WAIT_WRITE, c, NULL)
+
+FREERDP_LOCAL BIO_METHOD* BIO_s_simple_socket(void);
+FREERDP_LOCAL BIO_METHOD* BIO_s_buffered_socket(void);
+
+FREERDP_LOCAL int freerdp_tcp_connect(rdpContext* context,
+                                      rdpSettings* settings,
+                                      const char* hostname, int port, int timeout);
 
 #endif /* __TCP_H */

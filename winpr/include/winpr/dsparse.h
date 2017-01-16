@@ -20,10 +20,10 @@
 #ifndef WINPR_DSPARSE_H
 #define WINPR_DSPARSE_H
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(_UWP)
 
-#include <winpr/rpc.h>
 #include <winpr/windows.h>
+#include <winpr/rpc.h>
 
 #include <ntdsapi.h>
 
@@ -93,6 +93,10 @@ typedef struct
 	PDS_NAME_RESULT_ITEM rItems;
 } DS_NAME_RESULT, *PDS_NAME_RESULT;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 WINPR_API DWORD DsCrackSpnW(LPCWSTR pszSpn, DWORD* pcServiceClass, LPWSTR ServiceClass, DWORD* pcServiceName,
 		LPWSTR ServiceName, DWORD* pcInstanceName, LPWSTR InstanceName, USHORT* pInstancePort);
 
@@ -110,6 +114,10 @@ WINPR_API DWORD DsMakeSpnW(LPCWSTR ServiceClass, LPCWSTR ServiceName, LPCWSTR In
 
 WINPR_API DWORD DsMakeSpnA(LPCSTR ServiceClass, LPCSTR ServiceName, LPCSTR InstanceName,
 		USHORT InstancePort, LPCSTR Referrer, DWORD* pcSpnLength, LPSTR pszSpn);
+
+#ifdef __cplusplus
+}
+#endif
 
 #ifdef UNICODE
 #define DsMakeSpn	DsMakeSpnW

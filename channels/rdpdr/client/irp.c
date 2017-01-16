@@ -4,6 +4,8 @@
  *
  * Copyright 2010-2011 Vic Lee
  * Copyright 2010-2012 Marc-Andre Moreau <marcandre.moreau@gmail.com>
+ * Copyright 2015 Thincast Technologies GmbH
+ * Copyright 2015 DI (FH) Martin Haimberger <martin.haimberger@thincast.com>
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,80 +29,124 @@
 #include <string.h>
 
 #include <winpr/crt.h>
-
-#include <freerdp/utils/memory.h>
-#include <freerdp/utils/stream.h>
-#include <freerdp/utils/svc_plugin.h>
+#include <winpr/stream.h>
 
 #include "rdpdr_main.h"
 #include "devman.h"
 #include "irp.h"
 
-static void irp_free(IRP* irp)
+/**
+ * Function description
+ *
+ * @return 0 on success, otherwise a Win32 error code
+ */
+static UINT irp_free(IRP* irp)
 {
-	DEBUG_SVC("DeviceId %d FileId %d CompletionId %d", irp->device->id, irp->FileId, irp->CompletionId);
+	if (!irp)
+		return CHANNEL_RC_OK;
 
-	stream_free(irp->input);
-	stream_free(irp->output);
+	Stream_Free(irp->input, TRUE);
+	Stream_Free(irp->output, TRUE);
 
 	_aligned_free(irp);
+	return CHANNEL_RC_OK;
 }
 
-static void irp_complete(IRP* irp)
+/**
+ * Function description
+ *
+ * @return 0 on success, otherwise a Win32 error code
+ */
+static UINT irp_complete(IRP* irp)
 {
 	int pos;
+	rdpdrPlugin* rdpdr;
+	UINT error;
 
-	DEBUG_SVC("DeviceId %d FileId %d CompletionId %d", irp->device->id, irp->FileId, irp->CompletionId);
+	rdpdr = (rdpdrPlugin*) irp->devman->plugin;
 
-	pos = stream_get_pos(irp->output);
-	stream_set_pos(irp->output, 12);
-	stream_write_UINT32(irp->output, irp->IoStatus);
-	stream_set_pos(irp->output, pos);
+	pos = (int) Stream_GetPosition(irp->output);
+	Stream_SetPosition(irp->output, RDPDR_DEVICE_IO_RESPONSE_LENGTH - 4);
+	Stream_Write_UINT32(irp->output, irp->IoStatus); /* IoStatus (4 bytes) */
+	Stream_SetPosition(irp->output, pos);
 
-	svc_plugin_send(irp->devman->plugin, irp->output);
+	error = rdpdr_send(rdpdr, irp->output);
 	irp->output = NULL;
 
 	irp_free(irp);
+	return error;
 }
 
-IRP* irp_new(DEVMAN* devman, STREAM* data_in)
+IRP* irp_new(DEVMAN* devman, wStream* s, UINT* error)
 {
 	IRP* irp;
-	UINT32 DeviceId;
 	DEVICE* device;
+	UINT32 DeviceId;
 
-	stream_read_UINT32(data_in, DeviceId);
-	device = devman_get_device_by_id(devman, DeviceId);
-
-	if (device == NULL)
+	if (Stream_GetRemainingLength(s) < 20)
 	{
-		DEBUG_WARN("unknown DeviceId %d", DeviceId);
+		if (error)
+			*error = ERROR_INVALID_DATA;
 		return NULL;
 	}
 
+	Stream_Read_UINT32(s, DeviceId); /* DeviceId (4 bytes) */
+	device = devman_get_device_by_id(devman, DeviceId);
+
+	if (!device)
+	{
+		WLog_WARN(TAG, "devman_get_device_by_id failed!");
+		if (error)
+			*error = CHANNEL_RC_OK;
+
+		return NULL;
+	};
+
 	irp = (IRP*) _aligned_malloc(sizeof(IRP), MEMORY_ALLOCATION_ALIGNMENT);
+
+	if (!irp)
+	{
+		WLog_ERR(TAG, "_aligned_malloc failed!");
+		if (error)
+			*error = CHANNEL_RC_NO_MEMORY;
+		return NULL;
+	}
+
+
 	ZeroMemory(irp, sizeof(IRP));
 
+	irp->input = s;
 	irp->device = device;
 	irp->devman = devman;
-	stream_read_UINT32(data_in, irp->FileId);
-	stream_read_UINT32(data_in, irp->CompletionId);
-	stream_read_UINT32(data_in, irp->MajorFunction);
-	stream_read_UINT32(data_in, irp->MinorFunction);
-	irp->input = data_in;
 
-	irp->output = stream_new(256);
-	stream_write_UINT16(irp->output, RDPDR_CTYP_CORE);
-	stream_write_UINT16(irp->output, PAKID_CORE_DEVICE_IOCOMPLETION);
-	stream_write_UINT32(irp->output, DeviceId);
-	stream_write_UINT32(irp->output, irp->CompletionId);
-	stream_seek_UINT32(irp->output); /* IoStatus */
+	Stream_Read_UINT32(s, irp->FileId); /* FileId (4 bytes) */
+	Stream_Read_UINT32(s, irp->CompletionId); /* CompletionId (4 bytes) */
+	Stream_Read_UINT32(s, irp->MajorFunction); /* MajorFunction (4 bytes) */
+	Stream_Read_UINT32(s, irp->MinorFunction); /* MinorFunction (4 bytes) */
+
+	irp->output = Stream_New(NULL, 256);
+	if (!irp->output)
+	{
+		WLog_ERR(TAG, "Stream_New failed!");
+		_aligned_free(irp);
+		if (error)
+			*error = CHANNEL_RC_NO_MEMORY;
+		return NULL;
+	}
+	Stream_Write_UINT16(irp->output, RDPDR_CTYP_CORE); /* Component (2 bytes) */
+	Stream_Write_UINT16(irp->output, PAKID_CORE_DEVICE_IOCOMPLETION); /* PacketId (2 bytes) */
+	Stream_Write_UINT32(irp->output, DeviceId); /* DeviceId (4 bytes) */
+	Stream_Write_UINT32(irp->output, irp->CompletionId); /* CompletionId (4 bytes) */
+	Stream_Write_UINT32(irp->output, 0); /* IoStatus (4 bytes) */
 
 	irp->Complete = irp_complete;
 	irp->Discard = irp_free;
 
-	DEBUG_SVC("DeviceId %d FileId %d CompletionId %d MajorFunction 0x%X MinorFunction 0x%x",
-		irp->device->id, irp->FileId, irp->CompletionId, irp->MajorFunction, irp->MinorFunction);
+	irp->thread = NULL;
+	irp->cancelled = FALSE;
+
+	if (error)
+		*error = CHANNEL_RC_OK;
 
 	return irp;
 }

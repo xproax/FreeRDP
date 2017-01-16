@@ -19,22 +19,16 @@ set(MODULE_NAME "freerdp-locale")
 set(MODULE_PREFIX "FREERDP_LOCALE")
 
 set(${MODULE_PREFIX}_SRCS
-	virtual_key_codes.c
 	keyboard_layout.c
 	keyboard.c
 	locale.c
-	timezone.c
 	liblocale.h)
 
 set(${MODULE_PREFIX}_X11_SRCS
+	keyboard_x11.c
+	keyboard_x11.h
 	xkb_layout_ids.c
 	xkb_layout_ids.h)
-
-set(${MODULE_PREFIX}_X11_KEYMAP_SRCS
-	keyboard_keymap.c
-	keyboard_keymap.h
-	keyboard_x11.c
-	keyboard_x11.h)
 
 set(${MODULE_PREFIX}_XKBFILE_SRCS
 	keyboard_xkbfile.c
@@ -48,53 +42,31 @@ if(CMAKE_SYSTEM_NAME MATCHES Solaris)
 	set(WITH_SUN true)
 endif()
 
-if(NOT WIN32 AND (NOT ANDROID))
-	find_suggested_package(X11)
-	if(WITH_X11)
-		add_definitions(-DWITH_X11)
-		include_directories(${X11_INCLUDE_DIRS})
-		set(${MODULE_PREFIX}_SRCS ${${MODULE_PREFIX}_SRCS} ${${MODULE_PREFIX}_X11_SRCS})
-		set(${MODULE_PREFIX}_LIBS ${${MODULE_PREFIX}_LIBS} ${X11_LIBRARIES})
+if(WITH_X11)
+	freerdp_definition_add(-DWITH_X11)
+	freerdp_include_directory_add(${X11_INCLUDE_DIRS})
+	set(${MODULE_PREFIX}_SRCS ${${MODULE_PREFIX}_SRCS} ${${MODULE_PREFIX}_X11_SRCS})
+	freerdp_library_add(${X11_LIBRARIES})
 
-		if(WITH_SUN)
-			add_definitions(-DWITH_SUN)
-			set(${MODULE_PREFIX}_SRCS ${${MODULE_PREFIX}_SRCS} ${${MODULE_PREFIX}_SUN_SRCS})
-		elseif(NOT APPLE)
-			find_suggested_package(XKBFile)
-		endif()
+	if(WITH_SUN)
+		freerdp_definition_add(-DWITH_SUN)
+		set(${MODULE_PREFIX}_SRCS ${${MODULE_PREFIX}_SRCS} ${${MODULE_PREFIX}_SUN_SRCS})
+	endif()
 
-		if(WITH_XKBFILE)
-			add_definitions(-DWITH_XKBFILE)
-			include_directories(${XKBFILE_INCLUDE_DIRS})
-			set(${MODULE_PREFIX}_SRCS ${${MODULE_PREFIX}_SRCS} ${${MODULE_PREFIX}_XKBFILE_SRCS})
-			set(${MODULE_PREFIX}_LIBS ${${MODULE_PREFIX}_LIBS} ${XKBFILE_LIBRARIES})
-		else()
-			set(${MODULE_PREFIX}_SRCS ${${MODULE_PREFIX}_SRCS} ${${MODULE_PREFIX}_X11_KEYMAP_SRCS})
-		endif()
+	set(XKBFILE_FEATURE_TYPE "RECOMMENDED")
+	set(XKBFILE_FEATURE_PURPOSE "X11 keyboard")
+	set(XKBFILE_FEATURE_DESCRIPTION "X11 keyboard file extension")
+
+	find_feature(XKBFile ${XKBFILE_FEATURE_TYPE} ${XKBFILE_FEATURE_PURPOSE} ${XKBFILE_FEATURE_DESCRIPTION})
+
+	if(WITH_XKBFILE AND (NOT APPLE))
+		freerdp_definition_add(-DWITH_XKBFILE)
+		freerdp_include_directory_add(${XKBFILE_INCLUDE_DIRS})
+		set(${MODULE_PREFIX}_SRCS ${${MODULE_PREFIX}_SRCS} ${${MODULE_PREFIX}_XKBFILE_SRCS})
+		freerdp_library_add(${XKBFILE_LIBRARIES})
+	else()
+		set(${MODULE_PREFIX}_SRCS ${${MODULE_PREFIX}_SRCS} ${${MODULE_PREFIX}_X11_KEYMAP_SRCS})
 	endif()
 endif()
 
-add_complex_library(MODULE ${MODULE_NAME} TYPE "OBJECT"
-	MONOLITHIC ${MONOLITHIC_BUILD}
-	SOURCES ${${MODULE_PREFIX}_SRCS})
-
-set_target_properties(${MODULE_NAME} PROPERTIES VERSION ${FREERDP_VERSION_FULL} SOVERSION ${FREERDP_VERSION} PREFIX "lib")
-
-set_complex_link_libraries(VARIABLE ${MODULE_PREFIX}_LIBS
-	MONOLITHIC ${MONOLITHIC_BUILD} INTERNAL
-	MODULE freerdp
-	MODULES freerdp-utils)
-	
-set_complex_link_libraries(VARIABLE ${MODULE_PREFIX}_LIBS
-	MONOLITHIC ${MONOLITHIC_BUILD}
-	MODULE winpr
-	MODULES winpr-crt)
-
-if(MONOLITHIC_BUILD)
-	set(FREERDP_LIBS ${FREERDP_LIBS} ${${MODULE_PREFIX}_LIBS} PARENT_SCOPE)
-else()
-	target_link_libraries(${MODULE_NAME} ${${MODULE_PREFIX}_LIBS})
-	install(TARGETS ${MODULE_NAME} DESTINATION ${CMAKE_INSTALL_LIBDIR})
-endif()
-
-set_property(TARGET ${MODULE_NAME} PROPERTY FOLDER "FreeRDP/libfreerdp")
+freerdp_module_add(${${MODULE_PREFIX}_SRCS})

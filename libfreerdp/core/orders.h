@@ -3,6 +3,8 @@
  * Drawing Orders
  *
  * Copyright 2011 Marc-Andre Moreau <marcandre.moreau@gmail.com>
+ * Copyright 2016 Armin Novak <armin.novak@thincast.com>
+ * Copyright 2016 Thincast Technologies GmbH
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,9 +23,12 @@
 #define __ORDERS_H
 
 #include "rdp.h"
+
 #include <freerdp/types.h>
 #include <freerdp/update.h>
-#include <freerdp/utils/stream.h>
+#include <freerdp/api.h>
+
+#include <winpr/stream.h>
 
 /* Order Control Flags */
 #define ORDER_STANDARD				0x01
@@ -184,50 +189,114 @@
 
 #define CG_GLYPH_UNICODE_PRESENT		0x0010
 
-BOOL update_recv_order(rdpUpdate* update, STREAM* s);
+FREERDP_LOCAL extern const BYTE PRIMARY_DRAWING_ORDER_FIELD_BYTES[];
 
-void update_read_dstblt_order(STREAM* s, ORDER_INFO* orderInfo, DSTBLT_ORDER* dstblt);
-void update_read_patblt_order(STREAM* s, ORDER_INFO* orderInfo, PATBLT_ORDER* patblt);
-void update_read_scrblt_order(STREAM* s, ORDER_INFO* orderInfo, SCRBLT_ORDER* scrblt);
-void update_read_opaque_rect_order(STREAM* s, ORDER_INFO* orderInfo, OPAQUE_RECT_ORDER* opaque_rect);
-void update_read_draw_nine_grid_order(STREAM* s, ORDER_INFO* orderInfo, DRAW_NINE_GRID_ORDER* draw_nine_grid);
-void update_read_multi_dstblt_order(STREAM* s, ORDER_INFO* orderInfo, MULTI_DSTBLT_ORDER* multi_dstblt);
-void update_read_multi_patblt_order(STREAM* s, ORDER_INFO* orderInfo, MULTI_PATBLT_ORDER* multi_patblt);
-void update_read_multi_scrblt_order(STREAM* s, ORDER_INFO* orderInfo, MULTI_SCRBLT_ORDER* multi_scrblt);
-void update_read_multi_opaque_rect_order(STREAM* s, ORDER_INFO* orderInfo, MULTI_OPAQUE_RECT_ORDER* multi_opaque_rect);
-void update_read_multi_draw_nine_grid_order(STREAM* s, ORDER_INFO* orderInfo, MULTI_DRAW_NINE_GRID_ORDER* multi_draw_nine_grid);
-void update_read_line_to_order(STREAM* s, ORDER_INFO* orderInfo, LINE_TO_ORDER* line_to);
-void update_read_polyline_order(STREAM* s, ORDER_INFO* orderInfo, POLYLINE_ORDER* polyline);
-void update_read_memblt_order(STREAM* s, ORDER_INFO* orderInfo, MEMBLT_ORDER* memblt);
-void update_read_mem3blt_order(STREAM* s, ORDER_INFO* orderInfo, MEM3BLT_ORDER* mem3blt);
-void update_read_save_bitmap_order(STREAM* s, ORDER_INFO* orderInfo, SAVE_BITMAP_ORDER* save_bitmap);
-void update_read_glyph_index_order(STREAM* s, ORDER_INFO* orderInfo, GLYPH_INDEX_ORDER* glyph_index);
-void update_read_fast_index_order(STREAM* s, ORDER_INFO* orderInfo, FAST_INDEX_ORDER* fast_index);
-void update_read_fast_glyph_order(STREAM* s, ORDER_INFO* orderInfo, FAST_GLYPH_ORDER* fast_glyph);
-void update_read_polygon_sc_order(STREAM* s, ORDER_INFO* orderInfo, POLYGON_SC_ORDER* polygon_sc);
-void update_read_polygon_cb_order(STREAM* s, ORDER_INFO* orderInfo, POLYGON_CB_ORDER* polygon_cb);
-void update_read_ellipse_sc_order(STREAM* s, ORDER_INFO* orderInfo, ELLIPSE_SC_ORDER* ellipse_sc);
-void update_read_ellipse_cb_order(STREAM* s, ORDER_INFO* orderInfo, ELLIPSE_CB_ORDER* ellipse_cb);
+FREERDP_LOCAL BOOL update_recv_order(rdpUpdate* update, wStream* s);
 
-void update_read_cache_bitmap_order(STREAM* s, CACHE_BITMAP_ORDER* cache_bitmap_order, BOOL compressed, UINT16 flags);
-void update_read_cache_bitmap_v2_order(STREAM* s, CACHE_BITMAP_V2_ORDER* cache_bitmap_v2_order, BOOL compressed, UINT16 flags);
-void update_read_cache_bitmap_v3_order(STREAM* s, CACHE_BITMAP_V3_ORDER* cache_bitmap_v3_order, BOOL compressed, UINT16 flags);
-void update_read_cache_color_table_order(STREAM* s, CACHE_COLOR_TABLE_ORDER* cache_color_table_order, UINT16 flags);
-void update_read_cache_glyph_order(STREAM* s, CACHE_GLYPH_ORDER* cache_glyph_order, UINT16 flags);
-void update_read_cache_glyph_v2_order(STREAM* s, CACHE_GLYPH_V2_ORDER* cache_glyph_v2_order, UINT16 flags);
-void update_read_cache_brush_order(STREAM* s, CACHE_BRUSH_ORDER* cache_brush_order, UINT16 flags);
+FREERDP_LOCAL BOOL update_write_field_flags(wStream* s, UINT32 fieldFlags,
+        BYTE flags,
+        BYTE fieldBytes);
 
-void update_read_create_offscreen_bitmap_order(STREAM* s, CREATE_OFFSCREEN_BITMAP_ORDER* create_offscreen_bitmap);
-void update_read_switch_surface_order(STREAM* s, SWITCH_SURFACE_ORDER* switch_surface);
-void update_read_create_nine_grid_bitmap_order(STREAM* s, CREATE_NINE_GRID_BITMAP_ORDER* create_nine_grid_bitmap);
-void update_read_frame_marker_order(STREAM* s, FRAME_MARKER_ORDER* frame_marker);
-void update_read_stream_bitmap_first_order(STREAM* s, STREAM_BITMAP_FIRST_ORDER* stream_bitmap_first);
-void update_read_stream_bitmap_next_order(STREAM* s, STREAM_BITMAP_FIRST_ORDER* stream_bitmap_next);
-void update_read_draw_gdiplus_first_order(STREAM* s, DRAW_GDIPLUS_FIRST_ORDER* draw_gdiplus_first);
-void update_read_draw_gdiplus_next_order(STREAM* s, DRAW_GDIPLUS_NEXT_ORDER* draw_gdiplus_next);
-void update_read_draw_gdiplus_end_order(STREAM* s, DRAW_GDIPLUS_END_ORDER* draw_gdiplus_end);
-void update_read_draw_gdiplus_cache_first_order(STREAM* s, DRAW_GDIPLUS_CACHE_FIRST_ORDER* draw_gdiplus_cache_first);
-void update_read_draw_gdiplus_cache_next_order(STREAM* s, DRAW_GDIPLUS_CACHE_NEXT_ORDER* draw_gdiplus_cache_next);
-void update_read_draw_gdiplus_cache_end_order(STREAM* s, DRAW_GDIPLUS_CACHE_END_ORDER* draw_gdiplus_cache_end);
+FREERDP_LOCAL BOOL update_write_bounds(wStream* s, ORDER_INFO* orderInfo);
+
+FREERDP_LOCAL int update_approximate_dstblt_order(ORDER_INFO* orderInfo,
+        const DSTBLT_ORDER* dstblt);
+FREERDP_LOCAL BOOL update_write_dstblt_order(wStream* s, ORDER_INFO* orderInfo,
+        const DSTBLT_ORDER* dstblt);
+
+FREERDP_LOCAL int update_approximate_patblt_order(ORDER_INFO* orderInfo,
+        PATBLT_ORDER* patblt);
+FREERDP_LOCAL BOOL update_write_patblt_order(wStream* s, ORDER_INFO* orderInfo,
+        PATBLT_ORDER* patblt);
+
+FREERDP_LOCAL int update_approximate_scrblt_order(ORDER_INFO* orderInfo,
+        const SCRBLT_ORDER* scrblt);
+FREERDP_LOCAL BOOL update_write_scrblt_order(wStream* s, ORDER_INFO* orderInfo,
+        const SCRBLT_ORDER* scrblt);
+
+FREERDP_LOCAL int update_approximate_opaque_rect_order(ORDER_INFO* orderInfo,
+        const OPAQUE_RECT_ORDER* opaque_rect);
+FREERDP_LOCAL BOOL update_write_opaque_rect_order(wStream* s,
+        ORDER_INFO* orderInfo,
+        const OPAQUE_RECT_ORDER* opaque_rect);
+
+FREERDP_LOCAL int update_approximate_line_to_order(ORDER_INFO* orderInfo,
+        const LINE_TO_ORDER* line_to);
+FREERDP_LOCAL BOOL update_write_line_to_order(wStream* s, ORDER_INFO* orderInfo,
+        const LINE_TO_ORDER* line_to);
+
+FREERDP_LOCAL int update_approximate_memblt_order(ORDER_INFO* orderInfo,
+        const MEMBLT_ORDER* memblt);
+FREERDP_LOCAL BOOL update_write_memblt_order(wStream* s, ORDER_INFO* orderInfo,
+        const MEMBLT_ORDER* memblt);
+
+FREERDP_LOCAL int update_approximate_glyph_index_order(ORDER_INFO* orderInfo,
+        const GLYPH_INDEX_ORDER* glyph_index);
+FREERDP_LOCAL BOOL update_write_glyph_index_order(wStream* s,
+        ORDER_INFO* orderInfo,
+        GLYPH_INDEX_ORDER* glyph_index);
+
+FREERDP_LOCAL int update_approximate_cache_bitmap_order(
+    const CACHE_BITMAP_ORDER* cache_bitmap,
+    BOOL compressed, UINT16* flags);
+FREERDP_LOCAL BOOL update_write_cache_bitmap_order(wStream* s,
+        const CACHE_BITMAP_ORDER* cache_bitmap_order,
+        BOOL compressed, UINT16* flags);
+
+FREERDP_LOCAL int update_approximate_cache_bitmap_v2_order(
+    CACHE_BITMAP_V2_ORDER* cache_bitmap_v2,
+    BOOL compressed, UINT16* flags);
+FREERDP_LOCAL BOOL update_write_cache_bitmap_v2_order(wStream* s,
+        CACHE_BITMAP_V2_ORDER* cache_bitmap_v2_order,
+        BOOL compressed, UINT16* flags);
+
+FREERDP_LOCAL int update_approximate_cache_bitmap_v3_order(
+    CACHE_BITMAP_V3_ORDER* cache_bitmap_v3,
+    UINT16* flags);
+FREERDP_LOCAL BOOL update_write_cache_bitmap_v3_order(wStream* s,
+        CACHE_BITMAP_V3_ORDER* cache_bitmap_v3_order,
+        UINT16* flags);
+
+FREERDP_LOCAL int update_approximate_cache_color_table_order(
+    const CACHE_COLOR_TABLE_ORDER* cache_color_table,
+    UINT16* flags);
+FREERDP_LOCAL BOOL update_write_cache_color_table_order(wStream* s,
+        const CACHE_COLOR_TABLE_ORDER* cache_color_table_order,
+        UINT16* flags);
+
+FREERDP_LOCAL int update_approximate_cache_glyph_order(const CACHE_GLYPH_ORDER*
+        cache_glyph,
+        UINT16* flags);
+FREERDP_LOCAL BOOL update_write_cache_glyph_order(wStream* s,
+        const CACHE_GLYPH_ORDER* cache_glyph_order,
+        UINT16* flags);
+
+FREERDP_LOCAL int update_approximate_cache_glyph_v2_order(
+    const CACHE_GLYPH_V2_ORDER* cache_glyph_v2,
+    UINT16* flags);
+FREERDP_LOCAL BOOL update_write_cache_glyph_v2_order(
+    wStream* s,
+    const CACHE_GLYPH_V2_ORDER* cache_glyph_v2,
+    UINT16* flags);
+
+FREERDP_LOCAL int update_approximate_cache_brush_order(
+    const CACHE_BRUSH_ORDER* cache_brush,
+    UINT16* flags);
+FREERDP_LOCAL BOOL update_write_cache_brush_order(
+    wStream* s,
+    const CACHE_BRUSH_ORDER* cache_brush_order,
+    UINT16* flags);
+
+FREERDP_LOCAL int update_approximate_create_offscreen_bitmap_order(
+    const CREATE_OFFSCREEN_BITMAP_ORDER* create_offscreen_bitmap);
+FREERDP_LOCAL BOOL update_write_create_offscreen_bitmap_order(
+    wStream* s,
+    const CREATE_OFFSCREEN_BITMAP_ORDER* create_offscreen_bitmap);
+
+FREERDP_LOCAL int update_approximate_switch_surface_order(
+    const SWITCH_SURFACE_ORDER* switch_surface);
+FREERDP_LOCAL BOOL update_write_switch_surface_order(
+    wStream* s,
+    const SWITCH_SURFACE_ORDER* switch_surface);
 
 #endif /* __ORDERS_H */

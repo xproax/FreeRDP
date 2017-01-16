@@ -15,33 +15,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set(MODULE_NAME "winpr-crt")
-set(MODULE_PREFIX "WINPR_CRT")
-
-set(${MODULE_PREFIX}_SRCS
+winpr_module_add(
 	alignment.c
 	conversion.c
 	buffer.c
 	memory.c
-	string.c)
-
-if(MSVC AND (NOT MONOLITHIC_BUILD))
-	set(${MODULE_PREFIX}_SRCS ${${MODULE_PREFIX}_SRCS} module.def)
-endif()
-
-add_complex_library(MODULE ${MODULE_NAME} TYPE "OBJECT"
-	MONOLITHIC ${MONOLITHIC_BUILD}
-	SOURCES ${${MODULE_PREFIX}_SRCS})
-
-set_target_properties(${MODULE_NAME} PROPERTIES VERSION ${WINPR_VERSION_FULL} SOVERSION ${WINPR_VERSION} PREFIX "lib")
-
-if(MONOLITHIC_BUILD)
-
-else()
-	install(TARGETS ${MODULE_NAME} DESTINATION ${CMAKE_INSTALL_LIBDIR})
-endif()
-
-set_property(TARGET ${MODULE_NAME} PROPERTY FOLDER "WinPR")
+	string.c
+	unicode.c
+	utf.c
+	utf.h)
 
 if(BUILD_TESTING)
 	add_subdirectory(test)
